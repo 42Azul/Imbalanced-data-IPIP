@@ -3,7 +3,7 @@ Pillamos los datos
 
 
 ```{r}
-library(doParallel)
+#library(doParallel)
 library(DataExplorer)
 library(dplyr)
 library(pROC)
@@ -12,24 +12,19 @@ library(caret)
 ```
 
 ```{r}
-data <- read.csv("../adult.csv")
-data <- data %>% select(-c(education))
+datos <- read.csv("../data_tfg.csv")
+#datos <- datos %>% select(-c(education))
 #train.set <- read.csv("~/Alejandro/train_Alejandro.csv")
 #test.set <- read.csv("~/Alejandro/test_Alejandro.csv")
 #str(train.set)
 
-#Preproceso expres
-data$income[data$income == '>50K'] <-  'rico'
-data$income[data$income == '<=50K'] <-  'pobre'
-
-
-str(data)
+str(datos)
 ```
 
 Vemos como estan los datos MUY desbalanceados
 
 ```{r}
-barplot(prop.table(table(data$income)),
+barplot(prop.table(table(datos$SITUACION)),
         col = rainbow(2),
         ylim = c(0, 1.01),
         main = "Class Distribution")
@@ -39,28 +34,28 @@ barplot(prop.table(table(data$income)),
 Vemos cuanto hay de cada tipo
 
 ```{r}
-nrow(data[data$income == 'pobre',])
-nrow(data[data$income == 'rico',])
+nrow(datos[datos$SITUACION == 'CURADO',])
+nrow(datos[datos$SITUACION == 'FALLECIDO',])
 ```
 
 Hacemos un split de entrenamiento y test. ¿Como hago split, así normal?
 
 ```{r}
-sample <- sample(c(TRUE, FALSE), nrow(data), replace=TRUE, prob=c(0.7,0.3))
-data.train  <- data[sample, ]
-data.test   <- data[!sample, ]
+sample <- sample(c(TRUE, FALSE), nrow(datos), replace=TRUE, prob=c(0.7,0.3))
+datos.train  <- datos[sample, ]
+datos.test   <- datos[!sample, ]
 
-nrow(data.train)
-nrow(data.test)
+nrow(datos.train)
+nrow(datos.test)
 ```
 
 Vemos cuanto hay de cada tipo en train
 
 ```{r}
-nrow(data.train[data.train$income == 'pobre',])
-nrow(data.train[data.train$income == 'rico',])
+nrow(datos.train[datos.train$SITUACION == 'CURADO',])
+nrow(datos.train[datos.train$SITUACION == 'FALLECIDO',])
 
-barplot(prop.table(table(data.train$income)),
+barplot(prop.table(table(datos.train$SITUACION)),
         col = rainbow(2),
         ylim = c(0, 1.01),
         main = "Class Distribution Train")
@@ -69,13 +64,13 @@ barplot(prop.table(table(data.train$income)),
 Vemos cuanto hay de cada tipo en test
 
 ```{r}
-barplot(prop.table(table(data.test$income)),
+barplot(prop.table(table(datos.test$SITUACION)),
         col = rainbow(2),
         ylim = c(0, 1.01),
         main = "Class Distribution Test")
         
-nrow(data.test[data.test$income == 'pobre',])
-nrow(data.test[data.test$income == 'rico',])
+nrow(datos.test[datos.test$SITUACION == 'CURADO',])
+nrow(datos.test[datos.test$SITUACION == 'FALLECIDO',])
 ```
 
 
@@ -85,18 +80,18 @@ Cambiamos a factores los necesarios
 
 # Deberíamos también tratar 
 
-ind.cualit <- c(which(names(data.train) == "workclass"),which(names(data.train)=="education"), which(names(data.train)=="marital.status"):which(names(data.train)=="gender"), which(names(data.train)=="native.country"):which(names(data.train)=="income"))
+ind.cualit <- c(which(names(datos.train) == "SITUACION"),which(names(datos.train)=="SEXO"), which(names(datos.train)=="DM"):which(names(datos.train)=="DC"))
 
 
 
 for(i in ind.cualit){
   
-  data.train[,i] <- as.factor(data.train[, i])
-  data.test[,i] <- as.factor(data.test[, i])
+  datos.train[,i] <- as.factor(datos.train[, i])
+  datos.test[,i] <- as.factor(datos.test[, i])
   
 }
 
-str(data.train)
+str(datos.train)
 ```
 
 
@@ -108,16 +103,16 @@ Aplicamos p-subsets
 
 
 
-ricos <- data.train %>% dplyr::filter(income == "rico")
-nrow(ricos)
+muertos <- datos.train %>% dplyr::filter(SITUACION == "FALLECIDO")
+nrow(muertos)
 
 
-pobres <- data.train %>% filter(income == "pobre")
-nmin <- nrow(ricos)
+sanos <- datos.train %>% filter(SITUACION == "CURADO")
+nmin <- nrow(muertos)
 alpha <- .01
 ```
 
-Nos sale que hay 8116 pobres
+Nos sale que hay 242 muertos
 
 ```{r}
 curve(log(alpha)/(log(1-1/nmin)*np), from = 500, to = 5000, xname = "np", ylab = "p")
@@ -141,13 +136,13 @@ prop.mayoritaria<-0.55
 set.seed(42)
 p <- ceiling(p)
 dfs <- list()
-# Seleccionamos todos los  pobres que usaremos, y los reordenamos
+# Seleccionamos todos los  sanos que usaremos, y los reordenamos
 
 for(k in 1:p){
-  id.ricos <- sample(x = 1:nrow(ricos), size = np) #Índices de clase minoritaria para cada subconjunto
-  id.pobres <- sample(x= 1:nrow(pobres), size = round(np*prop.mayoritaria/(1-prop.mayoritaria))) #Índices de la clase mayoritaria para cada subconjunto
+  id.muertos <- sample(x = 1:nrow(muertos), size = np) #Índices de clase minoritaria para cada subconjunto
+  id.sanos <- sample(x= 1:nrow(sanos), size = round(np*prop.mayoritaria/(1-prop.mayoritaria))) #Índices de la clase mayoritaria para cada subconjunto
   
-  dfs[[k]] <- rbind(ricos[id.ricos,],pobres[id.pobres,])
+  dfs[[k]] <- rbind(muertos[id.muertos,],sanos[id.sanos,])
 }
 ```
 
@@ -157,7 +152,7 @@ Ver cuantos vectores distintos hay y su dimensión (número de features)
 unique(unlist(lapply(dfs,dim)))
 ```
 ```{r}
-unique(lapply(dfs,function(x) prop.table(table(x$income))))
+unique(lapply(dfs,function(x) prop.table(table(x$SITUACION))))
 ```
 Las métricas, especialmente KAPPA (igual ROC después)
 
@@ -165,14 +160,17 @@ Las métricas, especialmente KAPPA (igual ROC después)
 metricas <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
   c(
     ACCURACY = MLmetrics::Accuracy(data[, "pred"], data[, "obs"]),
-    SENS = sensitivity(data[, "pred"],data[, "obs"],positive="rico",negative="pobre"),
-    SPEC = specificity(data[, "pred"], data[, "obs"],positive="rico",negative="pobre"),
-    PPV = posPredValue(data[, "pred"], data[, "obs"],positive="rico",negative="pobre"),
-    NPV = negPredValue(data[, "pred"], data[, "obs"],positive="rico",negative="pobre"),
-    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
-    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive="rico",negative="pobre") + specificity(data[, "pred"], data[, "obs"],positive="rico",negative="pobre"))/2
+    SENS = sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    SPEC = specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    PPV = posPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    NPV = negPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa
   )
 }
+
+tC <- trainControl(
+  summaryFunction = metricas
+)
 ```
 
 Ahora tomamos los hiperparámetros y hacemos el entrenamiento en random forest:
@@ -188,12 +186,11 @@ hiperparametros
 
 Siendo la función de predicción del modelo para cada modelo de cada subproblema
 ```{r}
-prediccion <- function(ensemble, x, q = 0.75){
-  print(34)
+prediccion <- function(conj.model, x, q = 0.75){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
   pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
-  for(modelo in ensemble) pred <- cbind(pred, predict(modelo,x))
-  pred <- apply(pred, 1, function(x) prop.table(table(x))["pobre"])
-  ifelse(is.na(pred) | pred<q, "rico", "pobre")
+  for(modelo in conj.model) pred <- cbind(pred, predict(modelo,x))
+  pred <- apply(pred, 1, function(x) prop.table(table(x))["CURADO"])
+  ifelse(is.na(pred) | pred<q, "FALLECIDO", "CURADO")
 }
 ```
 
@@ -217,66 +214,53 @@ Procedemos directamente a entrenar cada subproblema con sus modelos:
 
 ```{r}
 E <- list() # Modelo final (ensemble de ensembles)
-set.seed(37)
+set.seed(12)
 
-tC <- trainControl(
-  summaryFunction = metricas,
-  method = "cv",
-  number = b,
-  allowParallel = TRUE,
-  classProbs = TRUE
-)
 for(k in 1:p){
   Ek <- list() # Ensemble de modelos k-ésimo
   i <- 0 # Contador para el número de intentos de ampliar el ensemble
-  # Conjunto de datos perfectamente balanceado:
+  # Conjunto de datos balanceado:
   df <- dfs[[k]]
+  
   while(length(Ek)<=b && i<mt(length(Ek))){
-    # Seleccionamos muestras para entrenar el modelo de random forest
-    pob <- which(df$income == "pobre")
-    ricos <- which(df$income == "rico")
-    
+    # Seleccionamos muestras para entrenar el modelo de random forest (modelo a elegir realmente)
+    mayoritaria <- which(df$SITUACION == "CURADO")
+    minoritaria <- which(df$SITUACION == "FALLECIDO")
     ind.train <- c(
-      sample(pob, size = round(np*prop.mayoritaria/(1-prop.mayoritaria)), replace = TRUE),
-      sample(ricos, size = np, replace = TRUE)
+      sample(mayoritaria, size = round(np*prop.mayoritaria/(1-prop.mayoritaria)), replace = TRUE),
+      sample(minoritaria, size = np, replace = TRUE) #Se puede probar sin reemplazamiento en ambos samples
     )
     
-    cl <- makeCluster(detectCores()-2)
-    registerDoParallel(cl)
     
     rf <- train(
       x = df[ind.train,-1],
       num.trees = 200,
       importance = "impurity",
-      y = df$income[ind.train],
+      y = df$SITUACION[ind.train],
       method = "ranger",
-      metric = "KAPPA",
+      metric = "KAPPA", #Buscamos maximizar el kappa
       maximize = T,
-      trControl = tC,
-      tuneGrid = hiperparametros
+      trControl = tC
     )
     
-    stopCluster(cl)
-    
     # Evaluamos el ensemble actual (sin el nuevo modelo)
-    
     metricas.ensemble <-
       if (length(Ek)==0){
         u <- -Inf
         names(u) <- "KAPPA"
         u
       } else metricas(data.frame(
-              obs = data.test$income,
-              pred= prediccion(Ek, data.test[-1])
+              obs = datos.test$SITUACION,
+              pred= as.factor(prediccion(Ek, datos.test[-1]))
            ))
-    
     Ek[[length(Ek)+1]] <- rf
     # Evaluamos el ensemble formado al añadir el nuevo modelo
     metricas.ensemble.2 <- metricas(data.frame(
-      obs = data.test$income,
-      pred= prediccion(Ek, data.test[-1])
+      obs = datos.test$SITUACION,
+      pred= as.factor(prediccion(Ek, datos.test[-1]))
     ))
     # Comparamos las metricas
+    print(metricas.ensemble)
     if(metricas.ensemble.2["KAPPA"] <= metricas.ensemble["KAPPA"]){ # Si el ensemble no mejora con el nuevo modelo...
       i <- i+1
       Ek[[length(Ek)]] <- NULL
@@ -290,11 +274,10 @@ for(k in 1:p){
   E[[length(E)+1]] <- Ek
 
 } # FIN. Hemos terminado de contruir el ensemble final
-
 saveRDS(E,"./TrainCompleto.rds")
 ```
 ```{r}
-ensemble <- readRDS("../TrainCompleto.rds")
+ensemble <- readRDS("TrainCompleto.rds")
 ```
 
 Veamos los modelos que son
@@ -309,15 +292,15 @@ Ahora hacemos el ensemble y predecimos:
 prediccion.final <- function(ensemble, x, q = 0.5){
   # Colocamos en cada fila de un conjunto de datos todas las predicciones para una muestra
     pred <- as.data.frame(lapply(ensemble, function(e) prediccion(e,x)))
-  pred <- apply(pred, 1, function(x) prop.table(table(x))["pobre"])
-  ifelse(is.na(pred) | pred<q, "rico", "pobre")
+  pred <- apply(pred, 1, function(x) prop.table(table(x))["CURADO"])
+  ifelse(is.na(pred) | pred<q, "FALLECIDO", "CURADO")
 }
 ```
 
 ```{r}
 metricas.final.rf<- metricas(data.frame(
-    obs = data.test$income,
-    pred= prediccion.final(ensemble, data.test[-1])
+    obs = datos.test$SITUACION,
+    pred= as.factor(prediccion.final(ensemble, datos.test[-1]))
 ))
 ```
 
