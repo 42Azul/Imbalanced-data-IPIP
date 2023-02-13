@@ -3,20 +3,15 @@ Pillamos los datos
 
 
 ```{r}
-#library(doParallel)
+library(doParallel)
 library(DataExplorer)
 library(dplyr)
 library(pROC)
 library(caret)
-
 ```
 
 ```{r}
 datos <- read.csv("../data_tfg.csv")
-#datos <- datos %>% select(-c(education))
-#train.set <- read.csv("~/Alejandro/train_Alejandro.csv")
-#test.set <- read.csv("~/Alejandro/test_Alejandro.csv")
-#str(train.set)
 
 str(datos)
 ```
@@ -42,20 +37,20 @@ Hacemos un split de entrenamiento y test. ¿Como hago split, así normal?
 
 ```{r}
 sample <- sample(c(TRUE, FALSE), nrow(datos), replace=TRUE, prob=c(0.7,0.3))
-datos.train  <- datos[sample, ]
-datos.test   <- datos[!sample, ]
+train.set  <- datos[sample, ]
+test.set   <- datos[!sample, ]
 
-nrow(datos.train)
-nrow(datos.test)
+nrow(train.set)
+nrow(test.set)
 ```
 
 Vemos cuanto hay de cada tipo en train
 
 ```{r}
-nrow(datos.train[datos.train$SITUACION == 'CURADO',])
-nrow(datos.train[datos.train$SITUACION == 'FALLECIDO',])
+nrow(train.set[train.set$SITUACION == 'CURADO',])
+nrow(train.set[train.set$SITUACION == 'FALLECIDO',])
 
-barplot(prop.table(table(datos.train$SITUACION)),
+barplot(prop.table(table(train.set$SITUACION)),
         col = rainbow(2),
         ylim = c(0, 1.01),
         main = "Class Distribution Train")
@@ -64,13 +59,13 @@ barplot(prop.table(table(datos.train$SITUACION)),
 Vemos cuanto hay de cada tipo en test
 
 ```{r}
-barplot(prop.table(table(datos.test$SITUACION)),
+barplot(prop.table(table(test.set$SITUACION)),
         col = rainbow(2),
         ylim = c(0, 1.01),
         main = "Class Distribution Test")
         
-nrow(datos.test[datos.test$SITUACION == 'CURADO',])
-nrow(datos.test[datos.test$SITUACION == 'FALLECIDO',])
+nrow(test.set[test.set$SITUACION == 'CURADO',])
+nrow(test.set[test.set$SITUACION == 'FALLECIDO',])
 ```
 
 
@@ -80,18 +75,18 @@ Cambiamos a factores los necesarios
 
 # Deberíamos también tratar 
 
-ind.cualit <- c(which(names(datos.train) == "SITUACION"),which(names(datos.train)=="SEXO"), which(names(datos.train)=="DM"):which(names(datos.train)=="DC"))
+ind.cualit <- c(which(names(train.set) == "SITUACION"),which(names(train.set)=="SEXO"), which(names(train.set)=="DM"):which(names(train.set)=="DC"))
 
 
 
 for(i in ind.cualit){
   
-  datos.train[,i] <- as.factor(datos.train[, i])
-  datos.test[,i] <- as.factor(datos.test[, i])
+  train.set[,i] <- as.factor(train.set[, i])
+  test.set[,i] <- as.factor(test.set[, i])
   
 }
 
-str(datos.train)
+str(train.set)
 ```
 
 
@@ -101,18 +96,16 @@ Aplicamos p-subsets
 
 ```{r}
 
-
-
-muertos <- datos.train %>% dplyr::filter(SITUACION == "FALLECIDO")
+muertos <- train.set %>% dplyr::filter(SITUACION == "FALLECIDO")
 nrow(muertos)
 
 
-sanos <- datos.train %>% filter(SITUACION == "CURADO")
+sanos <- train.set %>% filter(SITUACION == "CURADO")
 nmin <- nrow(muertos)
 alpha <- .01
 ```
 
-Nos sale que hay 242 muertos
+Nos sale que hay 241 muertos
 
 ```{r}
 curve(log(alpha)/(log(1-1/nmin)*np), from = 500, to = 5000, xname = "np", ylab = "p")
@@ -154,35 +147,6 @@ unique(unlist(lapply(dfs,dim)))
 ```{r}
 unique(lapply(dfs,function(x) prop.table(table(x$SITUACION))))
 ```
-Las métricas, especialmente KAPPA (igual ROC después)
-
-```{r}
-metricas <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
-  c(
-    ACCURACY = MLmetrics::Accuracy(data[, "pred"], data[, "obs"]),
-    SENS = sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO"),
-    SPEC = specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
-    PPV = posPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
-    NPV = negPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
-    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa
-  )
-}
-
-tC <- trainControl(
-  summaryFunction = metricas
-)
-```
-
-Ahora tomamos los hiperparámetros y hacemos el entrenamiento en random forest:
-
-```{r}
-hiperparametros <- expand.grid(
-  mtry = 0:6*3+1,
-  min.node.size = 1:3*10-9,
-  splitrule = "gini"
-)
-hiperparametros
-```
 
 Siendo la función de predicción del modelo para cada modelo de cada subproblema
 ```{r}
@@ -202,88 +166,218 @@ b <- ceiling(log(alpha_b)/(log(1-1/np)*np))
 b
 
 ```
+Las métricas, especialmente KAPPA (igual ROC después)
+
+```{r}
+metricas <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
+  c(
+    ACCURACY = MLmetrics::Accuracy(data[, "pred"], data[, "obs"]),
+    SENS = sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    SPEC = specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    PPV = posPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    NPV = negPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
+    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO") + specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"))/2
+  )
+}
+```
+
 Ahora calculamos una manera de ver 'mt', que es las veces que el algoritmo se puede equivocar o no aportar suficiente en un problema dado. Como conforme el cardinal de E sea mayor, menos probable es que el modelo aporte, así que vamos a hacerlo inversamente proporcional al mismo. (b siempre es mayor que n)
 
 ```{r}
 mt <- function(n) { ceiling((b-n) / 3) }
 plot(0:b, mt(0:b), xlab = "|E|", ylab = "mt")
 grid()
-```
-Procedemos directamente a entrenar cada subproblema con sus modelos:
 
+```
+
+Vamos a crear nuestra lista de b modelos en el caso de random forest
 
 ```{r}
-E <- list() # Modelo final (ensemble de ensembles)
-set.seed(12)
 
-for(k in 1:p){
-  Ek <- list() # Ensemble de modelos k-ésimo
-  i <- 0 # Contador para el número de intentos de ampliar el ensemble
-  # Conjunto de datos balanceado:
-  df <- dfs[[k]]
-  
-  while(length(Ek)<=b && i<mt(length(Ek))){
-    # Seleccionamos muestras para entrenar el modelo de random forest (modelo a elegir realmente)
-    mayoritaria <- which(df$SITUACION == "CURADO")
-    minoritaria <- which(df$SITUACION == "FALLECIDO")
-    ind.train <- c(
-      sample(mayoritaria, size = round(np*prop.mayoritaria/(1-prop.mayoritaria)), replace = TRUE),
-      sample(minoritaria, size = np, replace = TRUE) #Se puede probar sin reemplazamiento en ambos samples
+function_vector_ranger <-c()
+for(i in 1:b){
+
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
     )
+    method <- "ranger"
+    metric <- "KAPPA"
+    maximize <- T
     
-    
+    #Entrenamos el randomforest
     rf <- train(
-      x = df[ind.train,-1],
-      num.trees = 200,
-      importance = "impurity",
-      y = df$SITUACION[ind.train],
-      method = "ranger",
-      metric = "KAPPA", #Buscamos maximizar el kappa
-      maximize = T,
-      trControl = tC
+      SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC,
     )
     
-    # Evaluamos el ensemble actual (sin el nuevo modelo)
-    metricas.ensemble <-
-      if (length(Ek)==0){
-        u <- -Inf
-        names(u) <- "KAPPA"
-        u
-      } else metricas(data.frame(
-              obs = datos.test$SITUACION,
-              pred= as.factor(prediccion(Ek, datos.test[-1]))
-           ))
-    Ek[[length(Ek)+1]] <- rf
-    # Evaluamos el ensemble formado al añadir el nuevo modelo
-    metricas.ensemble.2 <- metricas(data.frame(
-      obs = datos.test$SITUACION,
-      pred= as.factor(prediccion(Ek, datos.test[-1]))
-    ))
-    # Comparamos las metricas
-    print(metricas.ensemble)
-    if(metricas.ensemble.2["KAPPA"] <= metricas.ensemble["KAPPA"]){ # Si el ensemble no mejora con el nuevo modelo...
-      i <- i+1
-      Ek[[length(Ek)]] <- NULL
-    } else{ # En caso de ampliar el ensemble, reseteamos las oportunidades de cara a una nueva ampliación
-      i <- 0
-    }
-    
-  } # Fin del WHILE (hemos terminado de construir el ensemble k-ésimo)
-  
-  # Guardamos la información del ensemble k-ésimo
-  E[[length(E)+1]] <- Ek
+    return(rf)
+  }
+  function_vector_ranger <- append(function_vector_ranger, train_model)
+}
 
-} # FIN. Hemos terminado de contruir el ensemble final
-saveRDS(E,"./TrainCompleto.rds")
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_ranger, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoRANGER.rds")
+
 ```
+
+
+Ahora lo mismo pero con RLog (Naive)
+
 ```{r}
-ensemble <- readRDS("TrainCompleto.rds")
+
+function_vector_rlog <-c()
+for(i in 1:b){
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(method = 'repeatedcv',summaryFunction = metricas,
+            number = 5,repeats =  5,search = 'random')
+    
+    method <- "glmnet"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos la Rlog
+    rlog <- train(SITUACION ~ .,
+      data = df.train,
+      method = "glmnet",
+      family = 'binomial',
+      metric = "KAPPA",
+      maximize = T,
+      trControl = tC,
+    )
+    
+    return(rlog)
+  }
+  
+  function_vector_rlog <- append(function_vector_rlog, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_rlog, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoRLOG.rds")
+
+```
+
+Ahora lo mismo pero con SVM
+
+```{r}
+
+function_vector_svm <-c()
+for(i in 1:b){
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    
+    method <- "svmLinear"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos la Rlog
+    svm <- train(
+      SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC,
+    )
+    
+    return(svm)
+  }
+  
+  function_vector_svm <- append(function_vector_svm, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_svm, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoSVM.rds")
+
+```
+
+
+Por último con GBM
+
+```{r}
+
+function_vector_gbm <-c()
+for(i in 1:b){
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    
+    method <- "gbm"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos el gradient boosting
+    gbm <- train(SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC,
+    )
+    
+    return(gbm)
+  }
+  
+  function_vector_gbm <- append(function_vector_gbm, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_gbm, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoGBM.rds")
+
+```
+
+
+Ahora veamos los resultados:
+
+```{r}
+ensemble.ranger <- readRDS("TrainCompletoRANGER.rds")
+ensemble.rlog <- readRDS("TrainCompletoRLOG.rds")
+ensemble.svm <- readRDS("TrainCompletoSVM.rds")
+ensemble.gbm <- readRDS("TrainCompletoGBM.rds")
 ```
 
 Veamos los modelos que son
 
 ```{r}
-unlist(lapply(ensemble,length))
+
+unlist(lapply(ensemble.ranger,length))
+unlist(lapply(ensemble.rlog,length))
+unlist(lapply(ensemble.svm,length))
+unlist(lapply(ensemble.gbm,length))
 ```
 
 Ahora hacemos el ensemble y predecimos:
@@ -299,15 +393,35 @@ prediccion.final <- function(ensemble, x, q = 0.5){
 
 ```{r}
 metricas.final.rf<- metricas(data.frame(
-    obs = datos.test$SITUACION,
-    pred= as.factor(prediccion.final(ensemble, datos.test[-1]))
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.ranger, test.set[-1]))
 ))
+
+metricas.final.rlog<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.rlog, test.set[-1]))
+))
+
+metricas.final.svm<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.svm, test.set[-1]))
+))
+
+metricas.final.gbm<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.gbm, test.set[-1]))
+))
+
+
 ```
 
 Vemos el resultado
 
 ```{r}
 metricas.final.rf
+metricas.final.rlog
+metricas.final.svm
+metricas.final.gbm
 ```
 
 
