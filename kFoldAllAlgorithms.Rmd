@@ -1,0 +1,455 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+Obtenemos los datos
+
+```{r}
+library(doParallel)
+library(DataExplorer)
+library(dplyr)
+library(pROC)
+library(caret)
+```
+
+
+```{r}
+datos <- read.csv("../data_tfg.csv", nrows=1800)
+datos <- datos[,1:3]
+str(datos)
+```
+
+Vemos como estan los datos MUY desbalanceados
+
+```{r}
+barplot(prop.table(table(datos$SITUACION)),
+        col = rainbow(2),
+        ylim = c(0, 1.01),
+        main = "Class Distribution")
+```
+
+Vemos cuanto hay de cada tipo
+
+```{r}
+print(paste("CURADO",nrow(datos[datos$SITUACION == 'CURADO',])))
+print(paste("FALLECIDO", nrow(datos[datos$SITUACION == 'FALLECIDO',])))
+```
+
+Cambiamos a factores los necesarios
+
+```{r}
+
+
+ind.cualit <- c(which(names(datos) == "SITUACION"),which(names(datos)=="SEXO")) #,which(names(datos)=="DM"):which(names(datos)=="DC"))
+
+
+
+for(i in ind.cualit){
+  
+  datos[,i] <- as.factor(datos[, i])
+  
+}
+
+str(datos)
+```
+
+Definimos,las metricas a medir, como la accuracy, sensibilidad o kappa
+
+```{r}
+metricas <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
+  c(
+    ACCURACY = MLmetrics::Accuracy(data[, "pred"], data[, "obs"]),
+    SENS = sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    SPEC = specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    PPV = posPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    NPV = negPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
+    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO") + specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"))/2
+  )
+}
+```
+
+
+
+Vamos a crear una funcion que dada una configuracion calcula la b para dicho problema, una que sea la usada para el limite de pruebas para ampliar el ensemble y otra que genera para una funcion dada un vector de tamaño b con esa funcion multiples veces.
+
+```{r}
+
+  
+calculate_b <- function( train.set,min_str, may_str, OUTPUT, prob_codo=0.75, alpha_b= .01) 
+{
+  nmin = sum(train.set[[OUTPUT]] == min_str)
+  nmay = sum(train.set[[OUTPUT]] == may_str)
+  
+  
+  
+  np <- ceiling(nmin*prob_codo)
+  b <- ceiling(log(alpha_b)/(log(1-1/nmin)*np))
+  return(b)
+}
+
+calculate_p <- function( train.set,min_str, may_str, OUTPUT, prob_codo=0.75, alpha_p= .01) 
+{
+  nmin = sum(train.set[[OUTPUT]] == min_str)
+  nmay = sum(train.set[[OUTPUT]] == may_str)
+
+  np <- ceiling(nmin*prob_codo)
+  p <- ceiling(log(alpha_p)/(log(1-1/np)*np))
+  return(p)
+}
+
+calculate_np <- function( train.set,min_str, may_str, OUTPUT,  prob_codo=0.75) 
+{
+  nmin = sum(train.set[[OUTPUT]] == min_str)
+  nmay = sum(train.set[[OUTPUT]] == may_str)
+
+  np <- ceiling(nmin*prob_codo)
+  return(np)
+}
+
+mt <- function(n) { ceiling((b-n) / 3) }
+
+
+get_function_vector <- function(b,function_training){
+  function_vector <- c() 
+  for(i in 1:b){
+    function_vector <- append(function_vector, function_training) 
+  } 
+  
+
+  return(function_vector)
+  
+}
+
+```
+
+Creamos ahora un vector de configuraciones dado por:
+
+```{r}
+configuraciones <- c(
+
+#RFOREST
+ function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    method <- "ranger"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    #Entrenamos el randomforest
+    rf <- train(
+      SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC
+    )
+    
+    return(rf)
+  },function(df.train, metricas) {
+
+    tC <- trainControl(method = 'repeatedcv',summaryFunction = metricas,
+            number = 5,repeats =  5,search = 'random')
+    
+    method <- "glmnet"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos la Rlog
+    rlog <- train(SITUACION ~ .,
+      data = df.train,
+      method = "glmnet",
+      family = 'binomial',
+      metric = "KAPPA",
+      maximize = T,
+      trControl = tC
+    )
+    
+    return(rlog)
+  },
+#SVM
+function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    
+    method <- "svmLinear"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos la Rlog
+    svm <- train(
+      SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC
+    )
+    
+    return(svm)
+  })
+
+
+#GBM
+ function(df.train, metricas) {
+    
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    
+    method <- "gbm"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos el gradient boosting
+    gbm <- train(SITUACION ~ .,
+                 data = df.train,
+                 method = method,
+                 metric = metric,
+                 maximize = maximize,
+                 trControl = tC,
+                 verboseIter = FALSE
+    )
+    
+    return(gbm)
+  }
+
+print(length(configuraciones))
+
+
+```
+
+
+
+Pasamos a obtener una separacion en subconjuntos balanceados. Para ello obtengo con la funcion creada imbalancedFold una serie de pliegues que permitan aplicar esa division.
+
+
+
+```{r}
+imbalancedFold <- function(data, n_folds, target, minority_class) {
+  n_samples <- nrow(data)
+  n_majority_total <- n_samples - sum(data[[target]] == minority_class)
+  n_minority_total <- sum(data[[target]] == minority_class)
+  
+  n_minority_per_fold <- ceiling(n_minority_total / n_folds)
+  n_majority_per_fold <- ceiling(n_samples / n_folds - n_minority_per_fold)
+
+  fold_indices <- list()
+  
+  for (i in 1:n_folds) {
+    #elegimos muestras de la clase mayoritaria
+    majority_indices <- which(data[[target]] != minority_class)
+    used_majority_indices <- unlist(fold_indices)
+    available_majority_indices <- setdiff(majority_indices, used_majority_indices)
+    
+    n_available_majority <- length(available_majority_indices)
+    n_majority_this_fold <- min(n_majority_per_fold, n_available_majority)
+    selected_majority_indices <- sample(available_majority_indices, size = n_majority_this_fold)
+    
+    #Cogemos las muestras de la clase minoritaria
+    minority_indices <- which(data[[target]] == minority_class)
+    used_minority_indices <- setdiff(used_majority_indices, available_majority_indices)
+    available_minority_indices <- setdiff(minority_indices, used_minority_indices)
+    n_available_minority <- length(available_minority_indices)
+    n_minority_this_fold <- min(n_minority_per_fold, n_available_minority)
+    selected_minority_indices <- sample(available_minority_indices, size = n_minority_this_fold)
+    
+    #Combinamos ambos indices
+    selected_indices <- c(selected_majority_indices, selected_minority_indices)
+
+    fold_indices[[i]] <- selected_indices
+  }
+  
+  return(fold_indices)
+}
+
+
+
+
+k=3
+folds <-imbalancedFold(datos, k,"SITUACION", "FALLECIDO")
+```
+
+
+Ahora definimos la funcion que realiza el entrenamiento. Sigue las ideas explicadas en el html
+
+
+```{r}
+train_IPIP <- function( prop.mayoritaria, OUTPUT, min_str, may_str, train.set, test.set, 
+                        funciones, prediccion, metricas, b, np,  p, mt, seed=42){
+  
+
+  set.seed(seed)
+  nmin = sum(train.set[[OUTPUT]] == min_str)
+  nmay = sum(train.set[[OUTPUT]] == may_str)
+  
+  
+
+  maySubSize <-  round(np*prop.mayoritaria/(1-prop.mayoritaria))
+  minSubSize <-  np
+
+  dfs <- list()
+  
+  minoritario = train.set %>% dplyr::filter(.data[[OUTPUT]] == min_str)
+  mayoritario = train.set %>% dplyr::filter(.data[[OUTPUT]] == may_str)
+
+  for(k in 1:p){
+    id.minoritaria <- sample(x = 1:nmin, size = minSubSize) #Índices de clase minoritaria para cada subconjunto
+    id.mayoritaria <- sample(x= 1:nmay, size = maySubSize) #Índices de la clase mayoritaria para cada subconjunto
+    
+    dfs[[k]] <- rbind(minoritario[id.minoritaria,],mayoritario[id.mayoritaria,])
+  }
+  
+  E <- list() # Modelo final (ensemble de ensembles)
+
+
+  for(k in 1:p){
+    Ek <- list() # Ensemble de modelos k-ésimo
+    i <- 0 # Contador para el número de intentos de ampliar el ensemble
+  
+    # Conjunto de datos balanceado:
+  df <- dfs[[k]]
+  modelo_i = 1
+  while(length(Ek)<=b && i<mt(length(Ek))){
+    # Seleccionamos muestras para entrenar el modelo
+    mayoritaria <- which(df[[OUTPUT]] == may_str)
+    minoritaria <- which(df[[OUTPUT]] == min_str)
+    ind.train <- c(
+      sample(mayoritaria, size = maySubSize, replace = TRUE),
+      sample(minoritaria, size = minSubSize, replace = TRUE) 
+    )
+
+    modelo <- funciones[[modelo_i]](df[ind.train,], metricas)
+    metricas.ensemble <-
+      if (length(Ek)==0){
+        u <- -Inf;
+        names(u) <- "KAPPA";
+        u;
+      } else metricas(data.frame(
+        obs = test.set[[OUTPUT]],
+        pred = as.factor(prediccion(Ek, test.set[colnames(test.set)!=OUTPUT]))
+    ))
+
+    Ek[[length(Ek)+1]] <- modelo
+    metricas.ensemble.new <- metricas(data.frame(
+      obs = test.set[[OUTPUT]],
+      pred= as.factor(prediccion(Ek, test.set[colnames(test.set)!=OUTPUT]))
+    ))
+    
+    if(metricas.ensemble.new["KAPPA"] <= metricas.ensemble["KAPPA"]){ # Si el ensemble no mejora con el nuevo modelo...
+      i <- i+1
+      Ek[[length(Ek)]] <- NULL
+    } else{ # En caso de ampliar el ensemble, reseteamos las oportunidades de cara a una nueva ampliación
+      i <- 0
+    }
+    modelo_i = modelo_i + 1
+  } # Fin del WHILE (hemos terminado de construir el ensemble k-ésimo)
+  
+  # Guardamos la información del ensemble k-ésimo
+  E[[length(E)+1]] <- Ek
+  
+} # FIN. Hemos terminado de contruir el ensemble final
+return(E);
+}
+
+
+```
+
+
+Ahora falta la funcion de prediccion:
+
+```{r}
+prediccion <- function(conj.model, x, q = 0.75){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
+  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
+  for(modelo in conj.model) pred <- cbind(pred, predict(modelo,x))
+  pred <- apply(pred, 1, function(x) prop.table(table(x))["CURADO"])
+  ifelse(is.na(pred) | pred<q, "FALLECIDO", "CURADO")
+}
+
+```
+
+
+
+Ahora pasamos a realizar el entrenamiento sobre cada una de ellas. Para eso tenemos una serie de configuraciones estipuladas en la lista de configuraciones.
+
+
+
+```{r warning=FALSE}
+mean_metricas <- list()
+
+prediccion.final <- function(ensemble, x, q = 0.5){
+  # Colocamos en cada fila de un conjunto de datos todas las predicciones para una muestra
+  pred <- as.data.frame(lapply(ensemble, function(e) prediccion(e,x)))
+  pred <- apply(pred, 1, function(x) prop.table(table(x))["CURADO"])
+  ifelse(is.na(pred) | pred<q, "FALLECIDO", "CURADO")
+}
+
+for(conf in 1:length(configuraciones)){
+  
+
+  
+  metricas.final <- list()
+  for (i in 1:k) {
+    
+    train.set <- datos[unlist(folds[i]),]
+    test.set <- datos[-unlist(folds[i]),]
+
+    b <- calculate_b( train.set, "FALLECIDO", "CURADO", "SITUACION")
+    np <- calculate_np( train.set, "FALLECIDO", "CURADO", "SITUACION")
+    p <- calculate_p( train.set, "FALLECIDO", "CURADO", "SITUACION")
+    function_vector<- get_function_vector(b, configuraciones[conf])
+    ensemble.ranger <- train_IPIP(0.55, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set, 
+                    function_vector, prediccion,  metricas, b, np, p, mt)
+    
+    print(unlist(lapply(ensemble.ranger,length)))
+    
+    metricas.final <- append( metricas.final, metricas(data.frame(
+      obs = test.set$SITUACION,
+      pred= as.factor(prediccion.final(ensemble.ranger, test.set[-1]))
+    )))
+    
+    print (metricas.final[i])
+  
+  }
+  
+  mean_metricas <- append(mean_metricas, apply(matrix(unlist(metricas.final), ncol= 7, byrow=T), 2, mean))
+  
+}
+
+
+```
+
+
+
+Ahora mostramos los valores de las diferentes metricas:
+
+
+```{r}
+
+matrix_mean <- matrix(mean_metricas, nrow=3, ncol=7, byrow=TRUE)
+
+# Define column and row names
+col_names <- c("ACCURACY", "SENS", "SPEC", "PPV", "NPV", "KAPPA", "BAL_ACC")
+row_names <- c("RANGER", "RLOG", "SVM")
+
+# Add column and row names to the matrix
+colnames(matrix_mean) <- col_names
+rownames(matrix_mean) <- row_names
+
+# Print the matrix
+matrix_mean
+
+```

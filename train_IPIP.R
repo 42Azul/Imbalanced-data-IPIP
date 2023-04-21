@@ -1,20 +1,52 @@
 
-train_IPIP <- function( p,b, np, prop.mayoritaria, OUTPUT, min_str, may_str, train.set, test.set,dfs, 
-                        function_vector, prediccion,  metricas) 
+train_IPIP <- function( prop.mayoritaria, OUTPUT, min_str, may_str, train.set, test.set, 
+                        function_vector, prediccion,  metricas, prob_codo=0.75, alpha = 0.01, alpha_b= .01) 
+
+  
 {
   
-  may_size <-  round(np*prop.mayoritaria/(1-prop.mayoritaria))
-  min_size <-  np
+  mt <- function(n) { ceiling((b-n) / 3) }
+  
+  nmin = sum(train.set[[OUTPUT]] == min_str)
+  nmay = sum(train.set[[OUTPUT]] == may_str)
+  
   
 
-E <- list() # Modelo final (ensemble de ensembles)
-set.seed(42)
-
-for(k in 1:p){
-  Ek <- list() # Ensemble de modelos k-ésimo
-  i <- 0 # Contador para el número de intentos de ampliar el ensemble
+  np <- ceiling(nmin*prob_codo)
+  p <- ceiling(log(alpha)/(log(1-1/nmin)*np))
   
-  # Conjunto de datos balanceado:
+  maySubSize <-  round(np*prop.mayoritaria/(1-prop.mayoritaria))
+  minSubSize <-  np
+
+  dfs <- list()
+  
+  minoritario = train.set %>% dplyr::filter(.data[[OUTPUT]] == min_str)
+  mayoritario = train.set %>% dplyr::filter(.data[[OUTPUT]] == may_str)
+
+  for(k in 1:p){
+    id.minoritaria <- sample(x = 1:nmin, size = minSubSize) #Índices de clase minoritaria para cada subconjunto
+    id.mayoritaria <- sample(x= 1:nmay, size = maySubSize) #Índices de la clase mayoritaria para cada subconjunto
+    
+    dfs[[k]] <- rbind(minoritario[id.minoritaria,],mayoritario[id.mayoritaria,])
+  }
+  
+  
+  #La b es el número de modelos por conjunto
+  b <- ceiling(log(alpha_b)/(log(1-1/np)*np))
+
+  if(length(function_vector) != b){
+    print(sprintf("Different size for function vector:%d and value of b: %d", length(function_vector), b))
+    return(NA)
+  }
+  
+  E <- list() # Modelo final (ensemble de ensembles)
+  set.seed(42)
+
+  for(k in 1:p){
+    Ek <- list() # Ensemble de modelos k-ésimo
+    i <- 0 # Contador para el número de intentos de ampliar el ensemble
+  
+    # Conjunto de datos balanceado:
   df <- dfs[[k]]
   
   while(length(Ek)<=b && i<mt(length(Ek))){
@@ -23,8 +55,8 @@ for(k in 1:p){
     mayoritaria <- which(df[[OUTPUT]] == may_str)
     minoritaria <- which(df[[OUTPUT]] == min_str)
     ind.train <- c(
-      sample(mayoritaria, size = may_size, replace = TRUE),
-      sample(minoritaria, size = min_size, replace = TRUE) 
+      sample(mayoritaria, size = maySubSize, replace = TRUE),
+      sample(minoritaria, size = minSubSize, replace = TRUE) 
     )
 
     modelo <- function_vector[[b]](df[ind.train,], metricas)

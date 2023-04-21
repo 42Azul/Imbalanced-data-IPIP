@@ -1,6 +1,4 @@
-
 Pillamos los datos
-
 
 ```{r}
 library(doParallel)
@@ -25,7 +23,6 @@ barplot(prop.table(table(datos$SITUACION)),
         main = "Class Distribution")
 ```
 
-
 Vemos cuanto hay de cada tipo
 
 ```{r}
@@ -33,7 +30,7 @@ nrow(datos[datos$SITUACION == 'CURADO',])
 nrow(datos[datos$SITUACION == 'FALLECIDO',])
 ```
 
-Hacemos un split de entrenamiento y test. ¿Como hago split, así normal?
+Hacemos un split de entrenamiento y test.
 
 ```{r}
 sample <- sample(c(TRUE, FALSE), nrow(datos), replace=TRUE, prob=c(0.7,0.3))
@@ -68,8 +65,8 @@ nrow(test.set[test.set$SITUACION == 'CURADO',])
 nrow(test.set[test.set$SITUACION == 'FALLECIDO',])
 ```
 
-
 Cambiamos a factores los necesarios
+
 ```{r}
 
 
@@ -89,10 +86,7 @@ for(i in ind.cualit){
 str(train.set)
 ```
 
-
-
 Aplicamos p-subsets
-
 
 ```{r}
 
@@ -114,6 +108,7 @@ grid()
 np <- ceiling(nmin*0.75)
 np
 ```
+
 Queremos el 75%
 
 ```{r}
@@ -144,11 +139,13 @@ Ver cuantos vectores distintos hay y su dimensión (número de features)
 ```{r}
 unique(unlist(lapply(dfs,dim)))
 ```
+
 ```{r}
 unique(lapply(dfs,function(x) prop.table(table(x$SITUACION))))
 ```
 
 Siendo la función de predicción del modelo para cada modelo de cada subproblema
+
 ```{r}
 prediccion <- function(conj.model, x, q = 0.75){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
   pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
@@ -166,6 +163,7 @@ b <- ceiling(log(alpha_b)/(log(1-1/np)*np))
 b
 
 ```
+
 Las métricas, especialmente KAPPA (igual ROC después)
 
 ```{r}
@@ -233,7 +231,6 @@ saveRDS(E,"./TrainCompletoRANGER.rds")
 
 ```
 
-
 Ahora lo mismo pero con RLog (Naive)
 
 ```{r}
@@ -280,30 +277,7 @@ Ahora lo mismo pero con SVM
 
 function_vector_svm <-c()
 for(i in 1:b){
- train_model <- function(df.train, metricas) {
-
-    tC <- trainControl(
-      summaryFunction = metricas,
-      allowParallel = TRUE,
-      classProbs = TRUE
-    )
-    
-    method <- "svmLinear"
-    metric <- "KAPPA"
-    maximize <- T
-    
-    # Entrenamos la Rlog
-    svm <- train(
-      SITUACION ~ .,
-      data = df.train,
-      method = method,
-      metric = metric,
-      maximize = maximize,
-      trControl = tC,
-    )
-    
-    return(svm)
-  }
+ train_model <- 
   
   function_vector_svm <- append(function_vector_svm, train_model)
 }
@@ -316,7 +290,6 @@ E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", 
 saveRDS(E,"./TrainCompletoSVM.rds")
 
 ```
-
 
 Por último con GBM
 
@@ -359,7 +332,6 @@ E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", 
 saveRDS(E,"./TrainCompletoGBM.rds")
 
 ```
-
 
 Ahora veamos los resultados:
 
@@ -423,5 +395,3 @@ metricas.final.rlog
 metricas.final.svm
 metricas.final.gbm
 ```
-
-
