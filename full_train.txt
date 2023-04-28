@@ -1,0 +1,55 @@
+[1] "FALLECIDO : 342"
+[1] "CURADO : 25718"
+[1] "Seed algorithm: 1"
+[1] "Training mixed exhaustive IPIP"
+Time difference of 2.439904 secs
+Time difference of 0.9974821 secs
+Time difference of 0.9717615 secs
+Time difference of 0.991467 secs
+Time difference of 3.084686 secs
+Time difference of 1.354684 secs
+Time difference of 0.9877367 secs
+Time difference of 1.203502 secs
+Time difference of 3.801141 secs
+Time difference of 1.285589 secs
+Time difference of 0.9753203 secs
+Time difference of 1.190288 secs
+Time difference of 3.403405 secs
+Time difference of 1.789059 secs
+Time difference of 1.193013 secs
+Time difference of 1.57614 secs
+Time difference of 3.381667 secs
+Time difference of 1.374982 secs
+Time difference of 1.136056 secs
+Time difference of 1.230265 secs
+[1] "Ensembles length in exhaustive MIXED fold: 1"
+[1] 1 1 1 1 1
+[1] "Training exhaustive IPIP for seed algorithm group"
+Time difference of 3.198937 secs
+Time difference of 3.230973 secs
+Time difference of 3.592982 secs
+Time difference of 3.192863 secs
+Time difference of 3.172426 secs
+Time difference of 3.641939 secs
+Time difference of 3.413652 secs
+Time difference of 2.975828 secs
+Time difference of 3.169141 secs
+Time difference of 3.076574 secs
+Time difference of 3.089236 secs
+Time difference of 3.107394 secs
+Time difference of 3.13126 secs
+Time difference of 3.053423 secs
+Time difference of 3.063354 secs
+Time difference of 3.343674 secs
+Time difference of 3.079898 secs
+Time difference of 3.111666 secs
+Time difference of 3.315664 secs
+Time difference of 3.090861 secs
+Time difference of 3.081832 secs
+Time difference of 2.896343 secs
+Time difference of 3.096714 secs
+Time difference of 2.930889 secs
+Time difference of 2.924878 secs
+Time difference of 2.89579 secs
+Time difference of 2.869632 secs
+Time difference of 2.905965 secs

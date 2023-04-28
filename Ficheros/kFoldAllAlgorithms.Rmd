@@ -18,7 +18,7 @@ First of all we obtain the needed data and do the preprocessing to the
 necessary elements as well as set up the output variable.
 
 ```{r}
-data <- read.csv("../../data_tfg.csv", nrows =1800)
+data <- read.csv("../../data_tfg.csv")
 ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
 
 for(i in ind.cualit){
@@ -215,7 +215,7 @@ seed_algorithms <- c(
     metric <- "KAPPA"
     maximize <- T
     
-    cl <- makeCluster(detectCores()-2)
+    cl <- makeCluster(detectCores(), type="FORK")
     clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
     registerDoParallel(cl)
     
@@ -248,7 +248,8 @@ seed_algorithms <- c(
     metric <- "KAPPA"
     maximize <- T
     
-    cl <- makeCluster(detectCores()-2)
+       
+    cl <- makeCluster(detectCores(), type="FORK")
     clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
     registerDoParallel(cl)
     
@@ -283,7 +284,8 @@ function(df.train, metrics, OUTPUT) {
 
     
         
-    cl <- makeCluster(detectCores()-2)
+        
+    cl <- makeCluster(detectCores(), type="FORK")
     clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
     registerDoParallel(cl)
     
@@ -316,8 +318,8 @@ function(df.train, metrics, OUTPUT) {
     metric <- "KAPPA"
     maximize <- T
     
-        
-    cl <- makeCluster(detectCores()-2)
+            
+    cl <- makeCluster(detectCores(), type="FORK")
     clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
     registerDoParallel(cl)
     
@@ -389,7 +391,7 @@ In this case we will make a k-fold of k=5
 
 ```{r}
 
-folds <-imbalancedFold(data, 2,OUTPUT_VAR, OUTPUT_MIN)
+folds <-imbalancedFold(data, 5,OUTPUT_VAR, OUTPUT_MIN)
 
 ```
 
@@ -465,8 +467,8 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
       )
     
       #We train with the models in configuration with a sequential approach
-      
       model <- configuration[[length(Ek)+1]](df[ind.train,], metrics, OUTPUT)
+
       metrics.ensemble <-
         if (length(Ek)==0){
           u <- -Inf;
@@ -510,15 +512,15 @@ approach of the models.
 ```{r}
 powerset = function(s){
     len = length(s)
-    l = vector(mode="list",length=2^len-1)
+    l = vector(mode="list",length=2^len);l[[1]]=numeric()
     counter = 1L
     for(x in 1L:length(s)){
         for(subset in 1L:counter){
-            l[[counter]] = c(l[[subset]],s[x])
             counter=counter+1L
+            l[[counter]] = c(l[[subset]],s[x])
         }
     }
-    return(l)
+    return(tail(l, length(l)-1))
 }
 
 
@@ -570,7 +572,10 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
 
       Ek <- list()
       for(conf in 1:length(configuration)){
+        init = Sys.time()
         Ek[[length(Ek)+1]] <- configuration[[conf]](df[ind.train,], metrics, OUTPUT)
+        final = Sys.time()
+        print(final-init)
       }
 
       all_sets <- powerset(Ek)
@@ -635,20 +640,32 @@ asociada al numero b de modelos maximos para un ensemble (de momento
 todas las funciones son iguales en cada iteracion, pero este approach
 permite crear vectores de funciones variables).
 
-```{r warning=TRUE}
+```{r warning=FALSE}
+
 mean_metrics.IPIPrepeated <- list()
 mean_metrics.seed <- list()
 mean_metrics.IPIPexhaustRepeat <- list()
+mean_metrics.IPIPexhaustMixed <- list()
 
+mean_time.seed <- list()
+mean_time.IPIPrepeated <- list()
+mean_time.IPIPexhaustRepeat <- list()
+mean_time.IPIPexhaustMixed = 0
 
 
 for(alg in 1:length(seed_algorithms)){
+  
+  mean_time.seed[[alg]] = 0
+  mean_time.IPIPrepeated[[alg]] = 0
+  mean_time.IPIPexhaustRepeat[[alg]] = 0
+  
   
 print(sprintf("Seed algorithm: %d", alg))
   
   metrics.final.IPIPrepeated <- list()
   metrics.final.IPIPexhaustRepeat <- list()
   metrics.final.seed <- list()
+  metrics.final.IPIPexhaustMixed <- list()
   
   for (i in 1:length(folds)) {
     
@@ -662,14 +679,47 @@ print(sprintf("Seed algorithm: %d", alg))
     p <- calculate_p(np)
     b <- calculate_b(np, nmin, nmaj)
     
+    
+    
+    ################# MIXED EXHAUSTIVE IPIP ################
+    if(alg==1){
+      print("Training mixed exhaustive IPIP")
+      start_time <- Sys.time()
+      
+      
+      ensemble.fold <- train_IPIP_exhaustive(0.55, OUTPUT_VAR, OUTPUT_MIN,
+            OUTPUT_MAJ, train.set, test.set, seed_algorithms, prediction,  metrics,np, p)
+      end_time <- Sys.time()
+      mean_time.IPIPexhaustMixed = mean_time.IPIPexhaustMixed + end_time - start_time
+      
+      print(sprintf("Ensembles length in exhaustive MIXED fold: %d", i))
+      print(unlist(lapply(ensemble.fold,length)))
+      
+      metrics.final.IPIPexhaustMixed <- append( metrics.final.IPIPexhaustMixed, 
+        metrics(data.frame(
+        obs = test.set[[OUTPUT_VAR]],
+        pred= as.factor(prediction.final(ensemble.fold, 
+                                         test.set[,names(test.set) != OUTPUT_VAR]))
+        )))
+    }
+    
+    
+    
+    ############################ EXHAUSTIVE REPEATED IPIP ##################
+    
     print("Training exhaustive IPIP for seed algorithm group")
     
     conf<- get_function_vector(b, seed_algorithms[alg])
+    
+    start_time <- Sys.time()
     ensemble.fold <- train_IPIP_exhaustive(0.55, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics,np, p)
+    end_time <- Sys.time()
+    mean_time.IPIPexhaustRepeat[[alg]]= mean_time.IPIPexhaustRepeat[[alg]] + end_time - start_time
     
-    print(sprintf("Ensembles length in exhaustive fold: %d", i))
+    
+    print(sprintf("Ensembles length in exhaustive REPEAT fold: %d", i))
     print(unlist(lapply(ensemble.fold,length)))
-    
+
     metrics.final.IPIPexhaustRepeat <- append( metrics.final.IPIPexhaustRepeat, 
       metrics(data.frame(
       obs = test.set[[OUTPUT_VAR]],
@@ -679,10 +729,19 @@ print(sprintf("Seed algorithm: %d", alg))
     
     
     
+    
+    #################  SEQUENTIAL REPEATED IPIP #######################
+    
     print("Training sequential IPIP for seed algorithm group")
     
     conf<- get_function_vector(b, seed_algorithms[alg])
+    
+    start_time <- Sys.time()
     ensemble.fold <- train_IPIP(0.55, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics, b, np, p, mt)
+    end_time <- Sys.time()
+    mean_time.IPIPrepeated[[alg]]= mean_time.IPIPrepeated[[alg]] +
+            end_time - start_time
+    
     
     print(sprintf("Ensembles length in sequential in fold: %d", i))
     print(unlist(lapply(ensemble.fold,length)))
@@ -694,15 +753,24 @@ print(sprintf("Seed algorithm: %d", alg))
                                        test.set[,names(test.set) != OUTPUT_VAR]))
       )))
     
+    ############################# SEED ALGORITHM #####################
     
-       print("Now training the seed algorithm")
+    print("Training the seed algorithm")
     
+    start_time <- Sys.time()
     model_seed <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR)
+    end_time <- Sys.time()
+    mean_time.IPIPrepeated[[alg]]= mean_time.IPIPrepeated[[alg]] +
+    end_time - start_time
+    
     
     metrics.final.seed <- append( metrics.final.seed, metrics(data.frame(
       obs = test.set[[OUTPUT_VAR]],
       pred = predict(model_seed,test.set)
     )))
+    
+
+    
     
 
 
@@ -711,13 +779,22 @@ print(sprintf("Seed algorithm: %d", alg))
   
   mean_metrics.IPIPrepeated <- append(mean_metrics.IPIPrepeated, apply(matrix(unlist(metrics.final.IPIPrepeated), ncol= 7, byrow=T), 2, mean))
   
-    mean_metrics.IPIPexhaustRepeat <- append(mean_metrics.IPIPexhaustRepeat, apply(matrix(unlist(metrics.final.IPIPexhaustRepeat), ncol= 7, byrow=T), 2, mean))
+    mean_metrics.IPIPexhaustRepeat <- append(mean_metrics.IPIPexhaustRepeat, 
+  apply(matrix(unlist(metrics.final.IPIPexhaustRepeat), ncol= 7, byrow=T), 2, mean))
   
   
-    mean_metrics.seed <- append(mean_metrics.seed, apply(matrix(unlist(metrics.final.seed), ncol= 7, byrow=T), 2, mean))
-  
+    mean_metrics.seed <- append(mean_metrics.seed, 
+        apply(matrix(unlist(metrics.final.seed), ncol= 7, byrow=T), 2, mean))
+    
+  if(alg==1)mean_metrics.IPIPexhaustMixed <- append(mean_metrics.IPIPexhaustMixed,
+  apply(matrix(unlist(metrics.final.IPIPexhaustMixed), ncol= 7, byrow=T), 2, mean))
+    
   
 }
+
+
+
+
 
 
 ```
@@ -730,6 +807,7 @@ cada configuracion dada.
 matrix_mean.seed <- matrix(mean_metrics.seed, nrow = 4, ncol = 7, byrow = TRUE)
 matrix_mean.IPIPrepeated <- matrix(mean_metrics.IPIPrepeated, nrow = 4, ncol = 7, byrow = TRUE)
 matrix_mean.IPIPexhaustRepeat <- matrix(mean_metrics.IPIPexhaustRepeat, nrow = 4, ncol = 7, byrow = TRUE)
+matrix_mean.IPIPexhaustMixed <- matrix(mean_metrics.IPIPexhaustMixed, nrow = 1, ncol = 7, byrow = TRUE)
 
 
 col_names <- c("ACCURACY", "SENS", "SPEC", "PPV", "NPV", "KAPPA", "BAL_ACC")
@@ -744,12 +822,21 @@ rownames(matrix_mean.IPIPrepeated) <- row_names
 colnames(matrix_mean.IPIPexhaustRepeat) <- col_names
 rownames(matrix_mean.IPIPexhaustRepeat) <- row_names
 
+colnames(matrix_mean.IPIPexhaustMixed) <- col_names
+
 print("IPIP SEQUENTIAL REPEAT")
 print(matrix_mean.IPIPrepeated)
 
 print("IPIP EXHAUST REPEATED")
 print(matrix_mean.IPIPexhaustRepeat)
 
+print("IPIP EXHAUST MIXED")
+print(matrix_mean.IPIPexhaustMixed)
+
 print("SEED ALGORITHM")
 print(matrix_mean.seed)
+
+
+
+
 ```
