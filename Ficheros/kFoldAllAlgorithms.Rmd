@@ -1,4 +1,6 @@
 ---
+title: "IPIP Examples and different configurations"
+author: "Fernando de la Gandara Fernandez"
 editor_options:
   markdown:
     wrap: 72
@@ -12,6 +14,14 @@ library(DataExplorer)
 library(dplyr)
 library(pROC)
 library(caret)
+library(parallel)
+library(DMwR)
+options(mc.cores = detectCores())
+
+sink("FILE_OUTPUT.txt")
+
+#Set random seed
+set.seed(42)
 ```
 
 First of all we obtain the needed data and do the preprocessing to the
@@ -21,10 +31,11 @@ necessary elements as well as set up the output variable.
 data <- read.csv("../../data_tfg.csv")
 ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
 
-for(i in ind.cualit){
+ for(i in ind.cualit){
   
   data[,i] <- as.factor(data[, i])
   
+
 }
 
 
@@ -64,26 +75,79 @@ print(sprintf("%s : %d", OUTPUT_MAJ, nmaj))
 
 ```
 
-We define the metrics to be measured, amongst which the kappa factor is
-a significant value to measure imbalanced data and will be the
-differential measure during the training.
+We define the metrics to be measured, amongst which the kappa factor or balanced accuracy will be
+significants value to measure imbalanced data and will be the
+differential measure during the training. One of them will be used in
+the training and the other for measuring purposes
 
 ```{r}
+
+
+kappa_mine <- function(TP, TN, FP, FN, lObs) {
+    po <- (TP + TN) / lObs
+    pe <- ((TP + FP) * (TP + FN) + (FP + TN) * (FN + TN)) / lObs^2
+    (po - pe) / (1 - pe)
+  }
+
+sensitivity_mine <- function(TP, TN, FP, FN) {
+    TP / (TP + FN)
+}
+
+specificity_mine <- function(TP, TN, FP, FN) {
+    TN / (TN + FP)
+  }
+
+# metrics <- function(data, lev = levels(as.factor(data$obs)), model = NULL) {
+#   #Calculate TP, TN, FP, FN
+#   pred = data[,"pred"]
+#   obs = data[,"obs"]
+#   
+#   TP <- sum(pred == OUTPUT_MIN & obs == OUTPUT_MIN)
+#   TN <- sum(pred == OUTPUT_MAJ & obs == OUTPUT_MAJ)
+#   FP <- sum(pred == OUTPUT_MIN & obs == OUTPUT_MAJ)
+#   FN <- sum(pred == OUTPUT_MAJ & obs == OUTPUT_MIN)
+#   
+#   # Calculate Cohen's kappa and BalAcc
+#   KAPPA <- kappa_mine(TP, TN, FP, FN, length(obs))
+#   BAL_ACC <- (sensitivity_mine(TP, TN, FP, FN) + specificity_mine(TP, TN, FP, FN)) / 2
+#   
+#   # Return metrics as a named vector
+#   c(KAPPA = KAPPA, BAL_ACC = BAL_ACC)
+# }
+
 metrics <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
-  
-  met <- c(
+
+    met <- c(
+    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
+    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ) + specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ))/2
+    )
+
+  return(met)
+}
+
+
+
+metrics_all <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
+    met <- c(
     ACCURACY = MLmetrics::Accuracy(data[, "pred"], data[, "obs"]),
     SENS = sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ),
     SPEC = specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ),
     PPV = posPredValue(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ),
     NPV = negPredValue(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ),
     KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
-    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ) + specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ))/2
+    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ) + specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ))/2,
+    F1 = MLmetrics::F1_Score(data[,"pred"],data[,"obs"]),
+    AUC = MLmetrics::AUC(data[,"prob"],data[,"obs.prob"]),
+    PR = MLmetrics::PRAUC(data[,"prob"],data[,"obs.prob"]),
+    MCC = mltools::mcc(data[,"pred"],data[,"obs"]),
+    GEOM = sqrt(sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ)*specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ))
   )
-
-  
   return(met)
 }
+
+number_metrics = 12
+#We add time as a measure we will compute later
+metric_names <- c("ACCURACY", "SENS", "SPEC", "PPV", "NPV", "KAPPA", "BAL_ACC", "F1", "AUC", "PR", "MCC", "GEOM", "TIME")
 ```
 
 Let us remember the different parameters of our model:
@@ -198,24 +262,27 @@ approaches and see which of them seem to be a better idea.
 -   Exhaustive IPIP but only the best ensemble
 
 ```{r}
+
+
 seed_algorithms <- c(
 
 #RFOREST
- function(df.train, metrics, OUTPUT) {
+ function(df.train, metrics, OUTPUT, metric_optimize) {
 
     
     tC <- trainControl(
       summaryFunction = metrics,
       allowParallel = TRUE,
+      method = "cv",
+      number = 5,
       classProbs = TRUE
     )
     
     
     method <- "ranger"
-    metric <- "KAPPA"
     maximize <- T
     
-    cl <- makeCluster(detectCores(), type="FORK")
+    cl <- makeCluster(detectCores(), type="FORK" )
     clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
     registerDoParallel(cl)
     
@@ -224,7 +291,7 @@ seed_algorithms <- c(
       as.formula(sprintf("%s ~.", OUTPUT)),
       data = df.train,
       method = method,
-      metric = metric,
+      metric = metric_optimize,
       maximize = maximize,
       importance = "impurity",
       trControl = tC
@@ -235,7 +302,7 @@ seed_algorithms <- c(
     return(rf)
   },
 #RLOG
- function(df.train, metrics, OUTPUT) {
+ function(df.train, metrics, OUTPUT, metric_optimize) {
 
 
     tC <- trainControl(
@@ -245,7 +312,6 @@ seed_algorithms <- c(
     )
     
     method <- "glmnet"
-    metric <- "KAPPA"
     maximize <- T
     
        
@@ -258,8 +324,12 @@ seed_algorithms <- c(
       data = df.train,
       method = "glmnet",
       family = 'binomial',
-      metric = "KAPPA",
+      metric = metric_optimize,
       maximize = T,
+      tuneGrid = expand.grid(
+        alpha = 0:1,
+      lambda = seq(0.0001, 1, length = 100)
+      ),
       trControl = tC
     )
     
@@ -270,7 +340,7 @@ seed_algorithms <- c(
     return(rlog)
   },
 #SVM
-function(df.train, metrics, OUTPUT) {
+function(df.train, metrics, OUTPUT, metric_optimize) {
 
     tC <- trainControl(
       summaryFunction = metrics,
@@ -279,7 +349,6 @@ function(df.train, metrics, OUTPUT) {
     )
     
     method <- "svmLinear"
-    metric <- "KAPPA"
     maximize <- T
 
     
@@ -291,10 +360,10 @@ function(df.train, metrics, OUTPUT) {
     
     
     svm <- train(
-      as.formula(sprintf("%s ~.", OUTPUT)),
+      as.formula(sprintf("%s ~.", OUTPUT, metric_optimize)),
       data = df.train,
       method = method,
-      metric = metric,
+      metric = metric_optimize,
       maximize = maximize,
       trControl = tC
     )
@@ -304,7 +373,7 @@ function(df.train, metrics, OUTPUT) {
     return(svm)
   },
 #GBM
- function(df.train, metrics, OUTPUT) {
+ function(df.train, metrics, OUTPUT, metric_optimize) {
 
     tC <- trainControl(
       summaryFunction = metrics,
@@ -315,7 +384,6 @@ function(df.train, metrics, OUTPUT) {
     )
     
     method <- "gbm"
-    metric <- "KAPPA"
     maximize <- T
     
             
@@ -326,7 +394,7 @@ function(df.train, metrics, OUTPUT) {
     gbm <- train(as.formula(sprintf("%s ~.", OUTPUT)),
                  data = df.train,
                  method = method,
-                 metric = metric,
+                 metric = metric_optimize,
                  maximize = maximize,
                  verbose = FALSE,
                  trControl = tC
@@ -337,6 +405,8 @@ function(df.train, metrics, OUTPUT) {
     return(gbm)
   })
 
+
+alg_names <-c("RANGER", "RLOG", "SVM", "GBM")
 
 ```
 
@@ -395,36 +465,124 @@ folds <-imbalancedFold(data, 5,OUTPUT_VAR, OUTPUT_MIN)
 
 ```
 
-Ahora definimos la funcion que realiza el entrenamiento. Sigue las ideas
-explicadas en el trabajo. Consiste en realizar p particiones donde
-aseguremos en cada una una cantidad np de elementos de la clase
-minoritaria y sobre ellos entrenar multiples modelos.
+Now the prediction function is missing. In our case it consists of two
+functions.
 
-Para eso tenemos una lista llamada dfs que contiene los indices de cada
-particion bien balanceada. Sobre cada una de estas particiones
-realizaremos un entrenamiento iterativo:
+The first one is applied to the ensemble of models of a specific
+partition. On each established model, the specific prediction (predict
+method of the same) is made. Then a table is made that assigns to each
+example the proportion of models that have predicted in that way. If
+more than q (75% by default, that is, at least three-quarters of the
+models predict that it is cured) have been predicted, it is established
+that it is predicted as OUTPUT_MAJ and if not, it will be deceased.
 
--   Primero se entrena el modelo sobre la primera funcion del vector de
-    funciones y se almacenan sus resultados de las metrics pasadas
--   Despues se intenta ampliar el modelo hasta que la funcion de
-    intentos "mt" lo limite. Para ampliar el modelo se entrena con la
-    siguiente funcion de entrenamiento dada por el parametro de
-    funciones y se compara el valor obtenido con esa funcion nueva y sin
-    ella. Si se mejora se incorpora al ensemble, sino se pasa a un nuevo
-    intento.
--   Una vez se ha terminado el numero de intentos para el ensemble
-    actual se considera completado y se incorpora como modelo final dado
-    para la particion.
+Finally, the same thing is done but instead of using the predict
+function of each model, the given prediction function on each ensemble
+is used, the proportion is made on the ensemble sets and if the
+prediction proportion value is \>50%, it is assumed as OUTPUT_MAJ being
+if not OUTPUT_MIN.
 
-Asi seguiremos hasta realizar este proceso en las p particiones y
-tendremos el modelo como respuesta.
+```{r}
+
+default_q = 0.75
+
+prediction <- function(conj.model, x, q = default_q){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
+  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
+  for(model in conj.model) pred <- cbind(pred, predict(model,x))
+  nElems = ncol(pred)
+  nElems <- ncol(pred)
+  counts <- rowSums(pred == OUTPUT_MAJ)
+  pred <- counts / nElems
+  ifelse(is.na(pred) | pred<q, OUTPUT_MIN, OUTPUT_MAJ)
+}
+
+prediction.final <- function(ensemble, x, q = default_q){
+  # Colocamos en cada fila de un conjunto de data todas las predictiones para una muestra
+  pred <- as.data.frame(lapply(ensemble, function(e) prediction(e,x)))
+  nElems = ncol(pred)
+  nElems <- ncol(pred)
+  counts <- rowSums(pred == OUTPUT_MAJ)
+  pred <- counts / nElems
+  ifelse(is.na(pred) | pred<q, OUTPUT_MIN, OUTPUT_MAJ)
+}
+
+prediction.predicted <- function(predicted, q = default_q) {
+    cl <- makeCluster(detectCores(), type="FORK" )
+    clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
+    registerDoParallel(cl)
+    
+    nElems <- length(predicted) / 2
+    
+    # Use foreach to parallelize the loop
+    counts <- foreach(i = 1:nElems, .combine = "c") %dopar% {
+      lapply(predicted[[2 * i]], function(x) as.integer(x == OUTPUT_MAJ))
+    }
+    sum_vector <- colSums(do.call(rbind, counts))
+    
+    # Stop the cluster and unregister it
+    stopCluster(cl)
+    pred <- ifelse(sum_vector / nElems < q, OUTPUT_MIN, OUTPUT_MAJ)
+    return(pred)
+}
+
+
+```
+ 
+ 
+ Now let us add some functions which calculate the prediction probability needed for some metrics
+
+```{r}
+prediction.prob <- function(ensemble, x, q = default_q){
+  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
+  for(model in ensemble) pred <- cbind(pred, predict(model,x,type="prob")[[OUTPUT_MAJ]])
+  pred<- rowSums(pred)
+  pred
+}
+
+prediction.final.prob <- function(ensemble, x, q =default_q){
+   #Place all predictions for a sample in each row of a data set
+  pred <- as.data.frame(lapply(ensemble, function(e) prediction.prob(e,x)))
+  pred <- rowSums(pred)/sum(unlist(lapply(ensemble,length)))
+  pred
+}
+
+
+
+prop.maj = 0.55
+metric_optimize = 'BAL_ACC'
+
+```
+
+Now we define the function that performs the training. It follows the
+ideas explained in the work. The process consists of creating p
+partitions where we ensure in each one a quantity of np elements of the
+minority class, and then training multiple models on these elements.
+
+To do this, we have a list called "dfs" that contains the indices of
+each well-balanced partition. We will perform iterative training on each
+of these partitions:
+
+-   First, the model is trained on the first function of the function
+    vector, and its metric results are stored.
+
+-   Then, we try to expand the model until the "mt" attempt function
+    limits it. To expand the model, it is trained with the next training
+    function given by the parameter of functions, and the value obtained
+    with that new function is compared with the value obtained without
+    it. If an improvement is achieved, it is incorporated into the
+    ensemble; otherwise, we move on to a new attempt.
+
+-   Once the number of attempts for the current ensemble is complete, it
+    is considered finished and is incorporated as the final model given
+    for the partition.
+
+We will continue this process for the p partitions, and we will have the
+model as our final response.
 
 ```{r}
 train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, 
-                        configuration, prediction, metrics, b, np,  p, mt, seed=42){
+                        configuration, prediction, metrics, b, np,  p, mt, CHOSEN_METRIC = "KAPPA"){
   
-
-  set.seed(seed)
   nmin = sum(train.set[[OUTPUT]] == min_str)
   nmaj = sum(train.set[[OUTPUT]] == maj_str)
   
@@ -436,14 +594,28 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
   #Incluye en cada posicion los valores de los elementos de dicha particion, de 1 a p
   dfs <- list()
   
-  minoritary =minoritary <- subset(train.set, train.set[[OUTPUT]] == min_str)
-  majoritary = majoritary <- subset(train.set, train.set[[OUTPUT]] == maj_str)
+  minoritary <- subset(train.set, train.set[[OUTPUT]] == min_str)
+  majoritary<- subset(train.set, train.set[[OUTPUT]] == maj_str)
+  
   for(k in 1:p){
     id.minoritary <- sample(x = 1:nmin, size = minSubSize) #Index for minoritary class for each subset
     id.majoritary <- sample(x= 1:nmaj, size = majSubSize) #Indexes for majoritary class for each subset
-    
+
     dfs[[k]] <- rbind(minoritary[id.minoritary,],majoritary[id.majoritary,])
   }
+  
+  # #Full maj class approach
+  # vals = 1:nmaj
+  # p=0
+  # while(length(vals)>majSubSize){
+  #   p = p+1
+  #   id.minoritary <- sample(x = 1:nmin, size = minSubSize) #Index for minoritary class for each subset
+  #   id.majoritary <- sample(vals, size = majSubSize, replace = FALSE) #Indexes for majoritary class for each subset
+  #    
+  #   vals <- vals[!(vals %in% id.majoritary)]
+  #   dfs[[p]] <- rbind(minoritary[id.minoritary,],majoritary[id.majoritary,])
+  # 
+  # }
   
   E <- list() #Final model (ensemble of ensembles)
 
@@ -467,12 +639,13 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
       )
     
       #We train with the models in configuration with a sequential approach
-      model <- configuration[[length(Ek)+1]](df[ind.train,], metrics, OUTPUT)
+      cat(sprintf("Training element %d in %d possible values\n", i+1,mt(b,length(Ek))))
+      model <- configuration[[length(Ek)+1]](df[ind.train,], metrics, OUTPUT, CHOSEN_METRIC)
 
       metrics.ensemble <-
         if (length(Ek)==0){
           u <- -Inf;
-          names(u) <- "KAPPA";
+          names(u) <- CHOSEN_METRIC;
           u;
         } else{
           metrics(data.frame(
@@ -488,7 +661,7 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
       ))
       
       #We check if the new model changes the result. If it does not we start trying again
-      if(metrics.ensemble.new["KAPPA"] <= metrics.ensemble["KAPPA"]){ 
+      if(metrics.ensemble.new[CHOSEN_METRIC] <= metrics.ensemble[CHOSEN_METRIC]){ 
         i <- i+1
         Ek[[length(Ek)]] <- NULL
       } else{ 
@@ -510,27 +683,24 @@ Now we have another possible approach of IPIP based on an exhaustive
 approach of the models.
 
 ```{r}
-powerset = function(s){
+powerset = function(s, test.set){
     len = length(s)
     l = vector(mode="list",length=2^len);l[[1]]=numeric()
     counter = 1L
-    for(x in 1L:length(s)){
+    for(x in 1L:len){
+        xUpred <- list("model"= s[[x]], "prediction"=predict(s[x], test.set))
         for(subset in 1L:counter){
             counter=counter+1L
-            l[[counter]] = c(l[[subset]],s[x])
+            l[[counter]] = c(l[[subset]],xUpred)
         }
     }
     return(tail(l, length(l)-1))
 }
 
 
-train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, configuration, prediction, metrics, np,  p, seed=42){
-  
+train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, configuration, prediction, metrics, np,  p, CHOSEN_METRIC = "KAPPA"){
 
-  
-  #Set random seed
-  set.seed(seed)
-  
+
   
   nmin = sum(train.set[[OUTPUT]] == min_str)
   nmaj = sum(train.set[[OUTPUT]] == maj_str)
@@ -545,26 +715,43 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
   
   minoritary <- subset(train.set, train.set[[OUTPUT]] == min_str)
   majoritary <- subset(train.set, train.set[[OUTPUT]] == maj_str)
+
   for(k in 1:p){
     id.minoritary <- sample(x = 1:nmin, size = minSubSize) #Index for minoritary class for each subset
     id.majoritary <- sample(x= 1:nmaj, size = majSubSize) #Indexes for majoritary class for each subset
-    
+
     dfs[[k]] <- rbind(minoritary[id.minoritary,],majoritary[id.majoritary,])
   }
+  
+  # #Full set approach
+  # vals = 1:nmaj
+  # p=0
+  # while(length(vals)>majSubSize){
+  #   p = p+1
+  #   id.minoritary <- sample(x = 1:nmin, size = minSubSize) #Index for minoritary class for each subset
+  #   id.majoritary <- sample(vals, size = majSubSize, replace = FALSE) #Indexes for majoritary class for each subset
+  #    
+  #   vals <- vals[!(vals %in% id.majoritary)]
+  #   dfs[[p]] <- rbind(minoritary[id.minoritary,],majoritary[id.majoritary,])
+  # 
+  # }
+
   
   E <- list() #Final model (ensemble of ensembles)
 
 
   for(k in 1:p){
+      
+    cat(sprintf("Ensemble number %d of %d\n", k,p))
     Ek <- list() # k-esim ensemble
-
+    init = Sys.time()
   
     #Balanced partition
-
+    
     df <- dfs[[k]]
     majoritary <- which(df[[OUTPUT]] == maj_str)
     minoritary <- which(df[[OUTPUT]] == min_str)
-    
+
       ind.train <- c(
         sample(majoritary, size = majSubSize, replace = TRUE),
         sample(minoritary, size = minSubSize, replace = TRUE) 
@@ -572,26 +759,39 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
 
       Ek <- list()
       for(conf in 1:length(configuration)){
-        init = Sys.time()
-        Ek[[length(Ek)+1]] <- configuration[[conf]](df[ind.train,], metrics, OUTPUT)
-        final = Sys.time()
-        print(final-init)
-      }
+        Ek[[length(Ek)+1]] <- configuration[[conf]](df[ind.train,], metrics, OUTPUT, CHOSEN_METRIC)
 
-      all_sets <- powerset(Ek)
-      max_kappa <- function(model){
-          metrics(data.frame(
-              obs = test.set[[OUTPUT]],
-              pred = as.factor(prediction(model, as.data.frame(test.set[, -which(names(test.set) == OUTPUT)])))
-          ))["KAPPA"]
       }
+      all_sets <- powerset(Ek, as.data.frame(test.set[, -which(names(test.set) == OUTPUT)]))
+      
+      lengths <- sapply(all_sets, function(x) length(x))
+      # Reorder the list based on the lengths
+      all_sets <- all_sets[order(lengths, decreasing = TRUE)]
+      
 
       
-      max_set <- all_sets[[which.max(lapply(all_sets, function(s) max_kappa(s)))]]
-     # End of the k-esim ensemble building
+      max_metric <- function(model){
+        pred = prediction.predicted(model)
+        met <- metrics(data.frame(
+              obs = test.set[[OUTPUT]],
+              pred = as.factor(pred)
+          ))[CHOSEN_METRIC]
+          return(met)
+      }
+      
+      
+      
+      #Run the max metric check in parallel mode
+      max_metric_list <- lapply(all_sets, max_metric)
+    
+      #print(cbind(lapply(all_sets, function(x) length(x)/2), max_metric_list))
+      # find the maximum chosen metric value and corresponding set
+      
+      max_metric_value <- max(unlist(max_metric_list))
+      max_set <- all_sets[[which.max(unlist(max_metric_list))]]
+      cat(sprintf("Max metric %s of ensemble is %f with length %d\n", CHOSEN_METRIC, max_metric_value, length(max_set)/2))
+      E[[length(E)+1]] <- max_set[seq_along(max_set) %% 2 != 0]
 
-    E[[length(E)+1]] <- max_set
-  
   }
 return(E);
 }
@@ -599,75 +799,266 @@ return(E);
 
 ```
 
-Now the prediction function is missing. In our case it consists of two
-functions.
 
-The first one is applied to the ensemble of models of a specific
-partition. On each established model, the specific prediction (predict
-method of the same) is made. Then a table is made that assigns to each
-example the proportion of models that have predicted in that way. If
-more than q (75% by default, that is, at least three-quarters of the
-models predict that it is cured) have been predicted, it is established
-that it is predicted as OUTPUT_MAJ and if not, it will be deceased.
 
-Finally, the same thing is done but instead of using the predict
-function of each model, the given prediction function on each ensemble
-is used, the proportion is made on the ensemble sets and if the
-prediction proportion value is \>50%, it is assumed as OUTPUT_MAJ being
-if not OUTPUT_MIN.
+Now we move on to performing the training for each configuration
+established in the configuration list. To do this, we iterate through
+each configuration and apply k-fold cross-validation. For each fold, we
+provide a vector function associated with the maximum number of models b
+for an ensemble. This approach allows for the creation of vectors of
+variable functions
 
-```{r}
-prediction <- function(conj.model, x, q = 0.75){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
-  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
-  for(model in conj.model) pred <- cbind(pred, predict(model,x))
-  pred <- apply(pred, 1, function(x) prop.table(table(x))[OUTPUT_MAJ])
-  ifelse(is.na(pred) | pred<q, OUTPUT_MIN, OUTPUT_MAJ)
+
+First we will make a naive approach over the base data using the seed algorithms
+
+```{r warning=FALSE, cache=TRUE}
+mean_metrics.seed <- list()
+mean_time.seed <- list()
+
+
+cat("######## Training seed algorithms naive approach ######## \n")
+for(alg in 1:length(seed_algorithms)){
+    mean_time.seed[[alg]] = 0
+    
+    cat(sprintf("Seed algorithm: %d\n", alg))
+    for (i in 1:length(folds)) {
+        cat(sprintf("Fold %d out of %d\n", i, length(folds)))
+        cat("------------------------------------\n")
+        
+    
+        metrics.final.seed <- list()
+        
+        train.set <- data[unlist(folds[i]),]
+        test.set <- data[-unlist(folds[i]),]
+    
+        
+        start_time <- Sys.time()
+        model_seed <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR,metric_optimize)
+        end_time <- Sys.time()
+        mean_time.seed[[alg]]= mean_time.seed[[alg]] +
+        end_time - start_time
+        print(end_time - start_time)
+        
+        metrics.final.seed <- append( metrics.final.seed, metrics_all(data.frame(
+          obs = test.set[[OUTPUT_VAR]],
+          pred = predict(model_seed,test.set[,names(test.set) != OUTPUT_VAR]),
+          prob= prediction.final.prob(list(list(model_seed)), test.set[,names(test.set) != OUTPUT_VAR]),
+          obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
+        )))
+        cat("------------------------------------\n")
+    }
+    
+  mean_metrics.seed <- append(mean_metrics.seed, 
+        apply(matrix(unlist(metrics.final.seed), ncol= number_metrics, byrow=T), 2, mean))
 }
 
-prediction.final <- function(ensemble, x, q = 0.5){
-  # Colocamos en cada fila de un conjunto de data todas las predictiones para una muestra
-  pred <- as.data.frame(lapply(ensemble, function(e) prediction(e,x)))
-  pred <- apply(pred, 1, function(x) prop.table(table(x))[OUTPUT_MAJ])
-  ifelse(is.na(pred) | pred<q, OUTPUT_MIN, OUTPUT_MAJ)
-}
+
+
+
+
+matrix_mean.seed <- matrix(mean_metrics.seed, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.seed<- cbind(matrix_mean.seed, lapply(mean_time.seed, function(x){as.numeric(x, units="secs")}/length(folds)))
+
+
+colnames(matrix_mean.seed) <-metric_names
+rownames(matrix_mean.seed) <- alg_names
+
+
+cat("SEED ALGORITHM NAIVE \n")
+print(matrix_mean.seed)
+cat("\n")
 
 ```
 
-Ahora pasamos a realizar el entrenamiento sobre cada configuracion
-establecida en la lista de configuraciones. Para ello recorremos en cada
-configuracion el k-fold y damos para cada fold una funcion de vectores
-asociada al numero b de modelos maximos para un ensemble (de momento
-todas las funciones son iguales en cada iteracion, pero este approach
-permite crear vectores de funciones variables).
 
-```{r warning=FALSE}
+Next we will train seed algorithms performing with the direct data but undersampled in the same way our IPIP method will be.
 
-mean_metrics.IPIPrepeated <- list()
-mean_metrics.seed <- list()
-mean_metrics.IPIPexhaustRepeat <- list()
-mean_metrics.IPIPexhaustMixed <- list()
-
-mean_time.seed <- list()
-mean_time.IPIPrepeated <- list()
-mean_time.IPIPexhaustRepeat <- list()
-mean_time.IPIPexhaustMixed = 0
+```{r warning=FALSE, cache=TRUE}
+mean_metrics.seed_under <- list()
+mean_time.seed_under <- list()
 
 
+train.seeds_under <- list()
+
+
+for(i in 1:length(folds)){
+  
+    train.set <- data[unlist(folds[i]),]
+    minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
+    majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
+    
+    nmin = nrow(minoritary)
+    nmaj = nrow(majoritary)
+    
+    id.majoritary <- sample(x= 1: nmaj, size = nmin/(1/prop.maj -1 )) #Indexes for majoritary class for each subset
+    train.seeds_under[[i]] <- rbind(minoritary,majoritary[id.majoritary,])
+  }
+
+
+
+cat("######## Training seed algorithms undersampled ######## \n")
 for(alg in 1:length(seed_algorithms)){
+    mean_time.seed_under[[alg]] = 0
+    
+    cat(sprintf("Seed algorithm: %d\n", alg))
+    for (i in 1:length(folds)) {
+
+        cat(sprintf("Fold %d out of %d\n", i, length(folds)))
+        cat("------------------------------------\n")
+        
+    
+        metrics.final.seed_under <- list()
+        
+        train.set <- train.seeds_under[[i]]
+        test.set <- data[-unlist(folds[i]),]
+    
+        
+        start_time <- Sys.time()
+        model_seed_under <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR, metric_optimize)
+        end_time <- Sys.time()
+        mean_time.seed_under[[alg]]= mean_time.seed_under[[alg]] +
+        end_time - start_time
+        print(end_time - start_time)
+        
+     
+        
+        metrics.final.seed_under <- append( metrics.final.seed_under, metrics_all(data.frame(
+          obs = test.set[[OUTPUT_VAR]],
+          pred = predict(model_seed_under,test.set[,names(test.set) != OUTPUT_VAR]),
+          prob= prediction.final.prob(list(list(model_seed_under)), test.set[,names(test.set) != OUTPUT_VAR]),
+          obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
+        )))
+        cat("------------------------------------\n")
+    }
   
-  mean_time.seed[[alg]] = 0
-  mean_time.IPIPrepeated[[alg]] = 0
-  mean_time.IPIPexhaustRepeat[[alg]] = 0
+  mean_metrics.seed_under <- append(mean_metrics.seed_under, 
+        apply(matrix(unlist(metrics.final.seed_under), ncol= number_metrics, byrow=T), 2, mean))
+}
+
+
+
+
+
+matrix_mean.seed_under <- matrix(mean_metrics.seed_under, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.seed_under<- cbind(matrix_mean.seed_under, lapply(mean_time.seed_under, function(x){as.numeric(x, units="secs")/length(folds)}))
+
+
+colnames(matrix_mean.seed_under) <-metric_names
+rownames(matrix_mean.seed_under) <- alg_names
+
+
+cat("SEED ALGORITHM UNDERSAMPLED \n")
+print(matrix_mean.seed_under)
+cat("\n")
+
+```
+
+
+After that approach we will use SMOTE for a balance in the same proportion as we will balance IPIP
+
+```{r warning=FALSE, cache=TRUE}
+mean_metrics.SMOTE <- list()
+mean_time.SMOTE <- list()
+
+
+train.SMOTE <- list()
+
+
+for(i in 1:length(folds)){
+    
+    train.set <- data[unlist(folds[i]),]
+    
+    minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
+    majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
+    
+    nmin = nrow(minoritary)
+    
+    # #We reduce tha maj class to its half
+    #nmaj = nrow(majoritary)/2
+    #prop.min = 1-prop.maj
+    #oversampling_perc = floor(100*(nmaj/((1/prop.min -1)*nmin) -1))
+    
+    maj_class_perc = 100/(1/prop.maj -1 )
+    train.set = SMOTE(as.formula(sprintf("%s ~.", OUTPUT_VAR)) , train.set , k=5, perc.over = 200, perc.under = maj_class_perc ) 
+    
+    minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
+    majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
+
+    train.SMOTE[[i]] <- rbind(minoritary,majoritary)
+  }
+
+
+
+cat("######## Training seed algorithms SMOTE ######## \n")
+for(alg in 1:length(seed_algorithms)){
+    mean_time.SMOTE[[alg]] = 0
+    
+    cat(sprintf("Seed algorithm: %d\n", alg))
+    for (i in 1:length(folds)) {
+
+        cat(sprintf("Fold %d out of %d\n", i, length(folds)))
+        cat("------------------------------------\n")
+        
+    
+        metrics.final.SMOTE <- list()
+        
+        train.set <- train.SMOTE[[i]]
+        test.set <- data[-unlist(folds[i]),]
+    
+        
+        start_time <- Sys.time()
+        model_SMOTE <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR, metric_optimize)
+        end_time <- Sys.time()
+        mean_time.SMOTE[[alg]]= mean_time.SMOTE[[alg]] +
+        end_time - start_time
+        print(end_time - start_time)
+        
+     
+        
+        metrics.final.SMOTE <- append( metrics.final.SMOTE, metrics_all(data.frame(
+          obs = test.set[[OUTPUT_VAR]],
+          pred = predict(model_SMOTE,test.set[,names(test.set) != OUTPUT_VAR]),
+          prob= prediction.final.prob(list(list(model_SMOTE)), test.set[,names(test.set) != OUTPUT_VAR]),
+          obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
+        )))
+        cat("------------------------------------\n")
+    }
   
-  
-print(sprintf("Seed algorithm: %d", alg))
-  
-  metrics.final.IPIPrepeated <- list()
-  metrics.final.IPIPexhaustRepeat <- list()
-  metrics.final.seed <- list()
-  metrics.final.IPIPexhaustMixed <- list()
-  
-  for (i in 1:length(folds)) {
+  mean_metrics.SMOTE <- append(mean_metrics.SMOTE, 
+        apply(matrix(unlist(metrics.final.SMOTE), ncol= number_metrics, byrow=T), 2, mean))
+}
+
+
+
+
+
+matrix_mean.SMOTE <- matrix(mean_metrics.SMOTE, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.SMOTE<- cbind(matrix_mean.SMOTE, lapply(mean_time.SMOTE, function(x){as.numeric(x, units="secs")/length(folds)}))
+
+
+colnames(matrix_mean.SMOTE) <-metric_names
+rownames(matrix_mean.SMOTE) <- alg_names
+
+
+cat("SEED ALGORITHM SMOTE\n")
+print(matrix_mean.SMOTE)
+cat("\n")
+
+```
+
+Now we will perform the training in the mixed algorithm exhaustive
+approach of IPIP
+
+```{r warning=FALSE, cache=TRUE}
+mean_metrics.IPIPexhaustMixed <- list()
+mean_time.IPIPexhaustMixed = 0
+metrics.final.IPIPexhaustMixed <- list()
+cat("######## Training mixed exhaustive IPIP ######## \n")
+ for (i in 1:length(folds)) {
+    cat(sprintf("Fold %d out of %d\n",i, length(folds)))
+    cat("------------------------------------\n")
+      
+
     
     train.set <- data[unlist(folds[i]),]
     test.set <- data[-unlist(folds[i]),]
@@ -680,163 +1071,352 @@ print(sprintf("Seed algorithm: %d", alg))
     b <- calculate_b(np, nmin, nmaj)
     
     
+    start_time <- Sys.time()
+    ensemble.fold <- train_IPIP_exhaustive(prop.maj, OUTPUT_VAR, OUTPUT_MIN,
+          OUTPUT_MAJ, train.set, test.set, seed_algorithms, prediction,  metrics,np, p, metric_optimize)
     
-    ################# MIXED EXHAUSTIVE IPIP ################
-    if(alg==1){
-      print("Training mixed exhaustive IPIP")
+    end_time <- Sys.time()
+    mean_time.IPIPexhaustMixed = mean_time.IPIPexhaustMixed + as.numeric(end_time - start_time)
+    
+    cat(sprintf("Ensembles length in exhaustive MIXED fold: %d\nLength of ensembles:", i))
+    cat(unlist(lapply(ensemble.fold,length)))
+    cat("\n")
+    
+    metrics.final.IPIPexhaustMixed <- append( metrics.final.IPIPexhaustMixed, 
+      metrics_all(data.frame(
+      obs = test.set[[OUTPUT_VAR]],
+      pred= as.factor(prediction.final(ensemble.fold, 
+                                       test.set[,names(test.set) != OUTPUT_VAR])),
+      prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
+      obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
+      )))
+      cat("------------------------------------\n")
+
+ }
+
+
+mean_metrics.IPIPexhaustMixed <- append(mean_metrics.IPIPexhaustMixed,
+  apply(matrix(unlist(metrics.final.IPIPexhaustMixed), ncol= number_metrics, byrow=T), 2, mean))
+
+matrix_mean.IPIPexhaustMixed <- matrix(mean_metrics.IPIPexhaustMixed, nrow = 1, ncol = number_metrics, byrow = TRUE)
+matrix_mean.IPIPexhaustMixed <- cbind(matrix_mean.IPIPexhaustMixed, as.numeric(mean_time.IPIPexhaustMixed, units = "secs")/length(folds))
+
+colnames(matrix_mean.IPIPexhaustMixed) <- metric_names
+
+cat("IPIP EXHAUST MIXED\n")
+print(matrix_mean.IPIPexhaustMixed)
+cat("\n")
+
+```
+
+We then try the exhaustive method applied to a group of algorithms of
+the same kind
+
+```{r warning=FALSE, cache=TRUE}
+mean_metrics.IPIPexhaustRepeat <- list()
+mean_time.IPIPexhaustRepeat <- list()
+
+cat("######## Training exhaustive repeat IPIP ######## \n")
+for(alg in 1:length(seed_algorithms)){
+  
+   cat(sprintf("Seed algorithm: %d\n", alg))
+  
+   mean_time.IPIPexhaustRepeat[[alg]] = 0
+   metrics.final.IPIPexhaustRepeat <- list()
+   for (i in 1:length(folds)) {
+      cat(sprintf("Fold %d out of %d\n",i, length(folds)))
+      cat("------------------------------------\n")
+        
+      train.set <- data[unlist(folds[i]),]
+      test.set <- data[-unlist(folds[i]),]
+      
+      nmin = sum(train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
+      nmaj = sum(train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
+      
+      np <- calculate_np( nmin, nmaj)
+      p <- calculate_p(np)
+      b <- calculate_b(np, nmin, nmaj)
+      
+      conf<- get_function_vector(b, seed_algorithms[alg])
+      
       start_time <- Sys.time()
       
+      ensemble.fold <- train_IPIP_exhaustive(prop.maj, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics,np, p, metric_optimize)
       
-      ensemble.fold <- train_IPIP_exhaustive(0.55, OUTPUT_VAR, OUTPUT_MIN,
-            OUTPUT_MAJ, train.set, test.set, seed_algorithms, prediction,  metrics,np, p)
       end_time <- Sys.time()
-      mean_time.IPIPexhaustMixed = mean_time.IPIPexhaustMixed + end_time - start_time
+      mean_time.IPIPexhaustRepeat[[alg]]= mean_time.IPIPexhaustRepeat[[alg]] + end_time - start_time
       
-      print(sprintf("Ensembles length in exhaustive MIXED fold: %d", i))
-      print(unlist(lapply(ensemble.fold,length)))
-      
-      metrics.final.IPIPexhaustMixed <- append( metrics.final.IPIPexhaustMixed, 
-        metrics(data.frame(
+      cat(sprintf("Ensembles length in exhaustive REPEAT fold: %d\nLength of ensembles:", i))
+      cat(unlist(lapply(ensemble.fold,length)))
+      cat("\n")
+    
+  
+      metrics.final.IPIPexhaustRepeat <- append( metrics.final.IPIPexhaustRepeat, 
+        metrics_all(data.frame(
         obs = test.set[[OUTPUT_VAR]],
         pred= as.factor(prediction.final(ensemble.fold, 
-                                         test.set[,names(test.set) != OUTPUT_VAR]))
+                                         test.set[,names(test.set) != OUTPUT_VAR])),
+        prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
+        obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
         )))
-    }
-    
-    
-    
-    ############################ EXHAUSTIVE REPEATED IPIP ##################
-    
-    print("Training exhaustive IPIP for seed algorithm group")
-    
-    conf<- get_function_vector(b, seed_algorithms[alg])
-    
-    start_time <- Sys.time()
-    ensemble.fold <- train_IPIP_exhaustive(0.55, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics,np, p)
-    end_time <- Sys.time()
-    mean_time.IPIPexhaustRepeat[[alg]]= mean_time.IPIPexhaustRepeat[[alg]] + end_time - start_time
-    
-    
-    print(sprintf("Ensembles length in exhaustive REPEAT fold: %d", i))
-    print(unlist(lapply(ensemble.fold,length)))
+          cat("------------------------------------\n")
 
-    metrics.final.IPIPexhaustRepeat <- append( metrics.final.IPIPexhaustRepeat, 
-      metrics(data.frame(
-      obs = test.set[[OUTPUT_VAR]],
-      pred= as.factor(prediction.final(ensemble.fold, 
-                                       test.set[,names(test.set) != OUTPUT_VAR]))
-      )))
-    
-    
-    
-    
-    #################  SEQUENTIAL REPEATED IPIP #######################
-    
-    print("Training sequential IPIP for seed algorithm group")
-    
-    conf<- get_function_vector(b, seed_algorithms[alg])
-    
-    start_time <- Sys.time()
-    ensemble.fold <- train_IPIP(0.55, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics, b, np, p, mt)
-    end_time <- Sys.time()
-    mean_time.IPIPrepeated[[alg]]= mean_time.IPIPrepeated[[alg]] +
-            end_time - start_time
-    
-    
-    print(sprintf("Ensembles length in sequential in fold: %d", i))
-    print(unlist(lapply(ensemble.fold,length)))
-    
-    metrics.final.IPIPrepeated <- append( metrics.final.IPIPrepeated, 
-      metrics(data.frame(
-      obs = test.set[[OUTPUT_VAR]],
-      pred= as.factor(prediction.final(ensemble.fold, 
-                                       test.set[,names(test.set) != OUTPUT_VAR]))
-      )))
-    
-    ############################# SEED ALGORITHM #####################
-    
-    print("Training the seed algorithm")
-    
-    start_time <- Sys.time()
-    model_seed <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR)
-    end_time <- Sys.time()
-    mean_time.IPIPrepeated[[alg]]= mean_time.IPIPrepeated[[alg]] +
-    end_time - start_time
-    
-    
-    metrics.final.seed <- append( metrics.final.seed, metrics(data.frame(
-      obs = test.set[[OUTPUT_VAR]],
-      pred = predict(model_seed,test.set)
-    )))
-    
+   }
+   mean_metrics.IPIPexhaustRepeat <- append(mean_metrics.IPIPexhaustRepeat, 
+    apply(matrix(unlist(metrics.final.IPIPexhaustRepeat), ncol= number_metrics, byrow=T), 2, mean))
+}
 
-    
-    
+matrix_mean.IPIPexhaustRepeat <- matrix(mean_metrics.IPIPexhaustRepeat, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.IPIPexhaustRepeat <- cbind(matrix_mean.IPIPexhaustRepeat, lapply(mean_time.IPIPexhaustRepeat, function(x){as.numeric(x, units="secs")/length(folds)}))
 
 
+colnames(matrix_mean.IPIPexhaustRepeat) <- metric_names
+rownames(matrix_mean.IPIPexhaustRepeat) <- alg_names
+
+cat("IPIP EXHAUST REPEATED\n")
+print(matrix_mean.IPIPexhaustRepeat)
+cat("\n")
+
+```
+
+Let us finally execute the code on the sequential greedy original
+approach of IPIP
+
+```{r warning=FALSE, cache=TRUE}
+
+mean_metrics.IPIPrepeated <- list()
+mean_time.IPIPrepeated <- list()
+
+cat("######## Training sequential repeat IPIP ######## \n")
+for(alg in 1:length(seed_algorithms)){
   
+   cat(sprintf("Seed algorithm: %d\n", alg))
+   mean_time.IPIPrepeated[[alg]] = 0
+   metrics.final.IPIPrepeated <- list()
+  
+   for (i in 1:length(folds)) {
+      cat(sprintf("Fold %d out of %d\n",i, length(folds)))
+      cat("------------------------------------\n")
+  
+      train.set <- data[unlist(folds[i]),]
+      test.set <- data[-unlist(folds[i]),]
+      
+      nmin = sum(train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
+      nmaj = sum(train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
+      
+      np <- calculate_np( nmin, nmaj)
+      p <- calculate_p(np)
+      b <- calculate_b(np, nmin, nmaj)
+    
+      conf<- get_function_vector(b, seed_algorithms[alg])
+      
+      start_time <- Sys.time()
+      ensemble.fold <- train_IPIP(prop.maj, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics, b, np, p, mt, metric_optimize)
+      end_time <- Sys.time()
+      mean_time.IPIPrepeated[[alg]]= mean_time.IPIPrepeated[[alg]] +
+              end_time - start_time
+      
+      
+      cat(sprintf("Ensembles length in sequential in fold: %d\nLength of ensembles:", i))
+      cat(unlist(lapply(ensemble.fold,length)))
+      cat("\n")
+    
+      
+      metrics.final.IPIPrepeated <- append( metrics.final.IPIPrepeated, 
+        metrics_all(data.frame(
+        obs = test.set[[OUTPUT_VAR]],
+        pred= as.factor(prediction.final(ensemble.fold, 
+                                         test.set[,names(test.set) != OUTPUT_VAR])),
+        prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
+        obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
+      )))
+        cat("------------------------------------\n")
+
   }
-  
-  mean_metrics.IPIPrepeated <- append(mean_metrics.IPIPrepeated, apply(matrix(unlist(metrics.final.IPIPrepeated), ncol= 7, byrow=T), 2, mean))
-  
-    mean_metrics.IPIPexhaustRepeat <- append(mean_metrics.IPIPexhaustRepeat, 
-  apply(matrix(unlist(metrics.final.IPIPexhaustRepeat), ncol= 7, byrow=T), 2, mean))
-  
-  
-    mean_metrics.seed <- append(mean_metrics.seed, 
-        apply(matrix(unlist(metrics.final.seed), ncol= 7, byrow=T), 2, mean))
-    
-  if(alg==1)mean_metrics.IPIPexhaustMixed <- append(mean_metrics.IPIPexhaustMixed,
-  apply(matrix(unlist(metrics.final.IPIPexhaustMixed), ncol= 7, byrow=T), 2, mean))
-    
-  
+
+  mean_metrics.IPIPrepeated <- append(mean_metrics.IPIPrepeated, apply(matrix(unlist(metrics.final.IPIPrepeated), ncol= number_metrics, byrow=T), 2, mean))
+
 }
 
 
+matrix_mean.IPIPrepeated <- matrix(mean_metrics.IPIPrepeated, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.IPIPrepeated <- cbind(matrix_mean.IPIPrepeated, lapply(mean_time.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
 
 
+
+
+
+colnames(matrix_mean.IPIPrepeated) <- metric_names
+rownames(matrix_mean.IPIPrepeated) <- alg_names
+
+
+cat("IPIP SEQUENTIAL REPEAT\n")
+print(matrix_mean.IPIPrepeated)
+cat("\n")
 
 
 ```
 
-Finalmente se muestra el resultado de las diferentes estadisticas para
-cada configuracion dada.
+And, last, we will execute the sequential approach but to a mixed version of algorithms
 
+```{r, warning=FALSE, cache = TRUE}
+mean_metrics.IPIPseqMixed<- list()
+mean_time.IPIPseqMixed <- list()
+   mean_time.IPIPseqMixed = 0 
+   
+conf<- c(seed_algorithms, seed_algorithms)
+cat("######## Training sequential mixed IPIP ######## \n")
+
+
+   metrics.final.IPIPseqMixed <- list()
+  
+   for (i in 1:length(folds)) {
+      cat(sprintf("Fold %d out of %d\n",i, length(folds)))
+      cat("------------------------------------\n")
+  
+      train.set <- data[unlist(folds[i]),]
+      test.set <- data[-unlist(folds[i]),]
+      
+      nmin = sum(train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
+      nmaj = sum(train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
+      
+      np <- calculate_np( nmin, nmaj)
+      p <- calculate_p(np)
+      b <- calculate_b(np, nmin, nmaj)
+    
+
+      
+      start_time <- Sys.time()
+      ensemble.fold <- train_IPIP(prop.maj, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, train.set, test.set, conf, prediction,  metrics, b, np, p, mt, metric_optimize)
+      end_time <- Sys.time()
+      mean_time.IPIPseqMixed= mean_time.IPIPseqMixed +
+              end_time - start_time
+      
+      
+      cat(sprintf("Ensembles length in sequential in fold: %d\nLength of ensembles:", i))
+      cat(unlist(lapply(ensemble.fold,length)))
+      cat("\n")
+    
+      
+      metrics.final.IPIPseqMixed <- append( metrics.final.IPIPseqMixed, 
+        metrics_all(data.frame(
+        obs = test.set[[OUTPUT_VAR]],
+        pred= as.factor(prediction.final(ensemble.fold, 
+                                         test.set[,names(test.set) != OUTPUT_VAR])),
+        prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
+        obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
+      )))
+        cat("------------------------------------\n")
+
+
+
+
+}
+
+mean_metrics.IPIPseqMixed <- append(mean_metrics.IPIPseqMixed, apply(matrix(unlist(metrics.final.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
+matrix_mean.IPIPseqMixed <- matrix(mean_metrics.IPIPseqMixed, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.IPIPseqMixed <- cbind(matrix_mean.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
+
+
+
+
+
+colnames(matrix_mean.IPIPseqMixed) <- metric_names
+rownames(matrix_mean.IPIPseqMixed) <- alg_names
+
+
+cat("IPIP SEQUENTIAL MIXED\n")
+print(matrix_mean.IPIPseqMixed)
+cat("\n")
+```
+
+After executing the code, we will show the comparison of relevant
+metrics using this function 
+
+```{r, results= 'hold'}
+
+print_with_asterisks <- function(matrix, best_values, elem) {
+    for(j in 0:nrow(matrix)){
+        for (i in 0:ncol(matrix)) {
+          if(j==0 && i==0){
+            cat("\t")
+          }
+          else if(i==0){
+            cat(alg_names[j])
+          }
+          else if(j == 0){
+            cat(metric_names[i])
+            if(nchar(metric_names[i])<8){
+              cat("\t")
+            }
+            if(nchar(metric_names[i])<4){
+              cat("\t")
+            }
+          }
+          else if(!is.nan(matrix[[j,i]])){
+              if(matrix[[j, i]] == best_values[[i,elem]]) {
+                if ((i!=13 && best_values[[i,elem]] == max(unlist(best_values[i,]))) || (i==13&&best_values[[i,elem]]==min(unlist(best_values[i,])))){
+                  cat("**")
+                } else {
+                  cat("*")
+                }
+              }
+              cat(matrix[[j,i]])
+            }
+          cat("\t")
+      }
+      cat("\n")
+    }
+    cat("\n")
+}
+
+```
+
+
+Now we get the max values and print the asterisks if it is the max of its matrix and double ** if it is the max of all matrix in that category
 ```{r}
 
-matrix_mean.seed <- matrix(mean_metrics.seed, nrow = 4, ncol = 7, byrow = TRUE)
-matrix_mean.IPIPrepeated <- matrix(mean_metrics.IPIPrepeated, nrow = 4, ncol = 7, byrow = TRUE)
-matrix_mean.IPIPexhaustRepeat <- matrix(mean_metrics.IPIPexhaustRepeat, nrow = 4, ncol = 7, byrow = TRUE)
-matrix_mean.IPIPexhaustMixed <- matrix(mean_metrics.IPIPexhaustMixed, nrow = 1, ncol = 7, byrow = TRUE)
+get_better_data <- function(matrix){
+  best_data <- list()
+  for (col in metric_names){
+    if(col == "TIME"){
+      best_data <- append(best_data ,min(unlist(matrix[,col]), na.rm=TRUE))
+    }
+    else{
+      best_data <- append(best_data, max(unlist(matrix[,col]), na.rm=TRUE))
+    }
+  }
+  return(best_data)
+}
 
 
-col_names <- c("ACCURACY", "SENS", "SPEC", "PPV", "NPV", "KAPPA", "BAL_ACC")
-row_names <- c("RANGER", "RLOG", "SVM", "GBM")
+best_values <- sapply( list(
+  matrix_mean.IPIPrepeated,
+  matrix_mean.IPIPseqMixed,
+  matrix_mean.IPIPexhaustRepeat,
+  matrix_mean.IPIPexhaustMixed,
+  matrix_mean.seed,
+  matrix_mean.seed_under,
+  matrix_mean.SMOTE
+), get_better_data)
 
-colnames(matrix_mean.seed) <- col_names
-rownames(matrix_mean.seed) <- row_names
+cat("IPIP SEQUENTIAL REPEAT\n")
+print_with_asterisks(matrix_mean.IPIPrepeated,best_values,1)
 
-colnames(matrix_mean.IPIPrepeated) <- col_names
-rownames(matrix_mean.IPIPrepeated) <- row_names
+cat("IPIP SEQUENTIAL MIXED\n")
+print_with_asterisks(matrix_mean.IPIPseqMixed,best_values,2)
 
-colnames(matrix_mean.IPIPexhaustRepeat) <- col_names
-rownames(matrix_mean.IPIPexhaustRepeat) <- row_names
+cat("IPIP EXHAUST REPEAT\n")
+print_with_asterisks(matrix_mean.IPIPexhaustRepeat, best_values, 3)
 
-colnames(matrix_mean.IPIPexhaustMixed) <- col_names
+cat("IPIP EXHAUST MIXED\n")
+print_with_asterisks(matrix_mean.IPIPexhaustMixed, best_values, 4)
 
-print("IPIP SEQUENTIAL REPEAT")
-print(matrix_mean.IPIPrepeated)
+cat("SEED\n")
+print_with_asterisks(matrix_mean.seed, best_values, 5)
 
-print("IPIP EXHAUST REPEATED")
-print(matrix_mean.IPIPexhaustRepeat)
+cat("SEED UNDERSAMPLED\n")
+print_with_asterisks(matrix_mean.seed_under, best_values, 6)
 
-print("IPIP EXHAUST MIXED")
-print(matrix_mean.IPIPexhaustMixed)
-
-print("SEED ALGORITHM")
-print(matrix_mean.seed)
-
-
-
-
-```
+cat("SMOTE\n")
+print_with_asterisks(matrix_mean.SMOTE, best_values, 7)
