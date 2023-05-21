@@ -1,0 +1,14 @@
+Train split
+
+Uso de modelos: Random Forest (ranger) para prueba.
+
+Distintos desbalanceos a simular: quitar ejemplos positivos en escala lineal y luego logaritmica. Primero decrementos a la izquierda 1 2 5 15 30 50
+
+ratio eje X y en el eje Y kappa o medida
+
+Utilizar metodos competitivos vs mismo algoritmo: RLog (naive), SVM,
+GBM Gradiente y parametros (de momento naive).
+
+Aplicar algoritmo convencional.
+
+create k-fold a mano 5 veces en k-folds. Reportar ppv npv kappa balanced accuracy.

@@ -1,0 +1,397 @@
+Pillamos los datos
+
+```{r}
+library(doParallel)
+library(DataExplorer)
+library(dplyr)
+library(pROC)
+library(caret)
+```
+
+```{r}
+datos <- read.csv("../data_tfg.csv")
+
+str(datos)
+```
+
+Vemos como estan los datos MUY desbalanceados
+
+```{r}
+barplot(prop.table(table(datos$SITUACION)),
+        col = rainbow(2),
+        ylim = c(0, 1.01),
+        main = "Class Distribution")
+```
+
+Vemos cuanto hay de cada tipo
+
+```{r}
+nrow(datos[datos$SITUACION == 'CURADO',])
+nrow(datos[datos$SITUACION == 'FALLECIDO',])
+```
+
+Hacemos un split de entrenamiento y test.
+
+```{r}
+sample <- sample(c(TRUE, FALSE), nrow(datos), replace=TRUE, prob=c(0.7,0.3))
+train.set  <- datos[sample, ]
+test.set   <- datos[!sample, ]
+
+nrow(train.set)
+nrow(test.set)
+```
+
+Vemos cuanto hay de cada tipo en train
+
+```{r}
+nrow(train.set[train.set$SITUACION == 'CURADO',])
+nrow(train.set[train.set$SITUACION == 'FALLECIDO',])
+
+barplot(prop.table(table(train.set$SITUACION)),
+        col = rainbow(2),
+        ylim = c(0, 1.01),
+        main = "Class Distribution Train")
+```
+
+Vemos cuanto hay de cada tipo en test
+
+```{r}
+barplot(prop.table(table(test.set$SITUACION)),
+        col = rainbow(2),
+        ylim = c(0, 1.01),
+        main = "Class Distribution Test")
+        
+nrow(test.set[test.set$SITUACION == 'CURADO',])
+nrow(test.set[test.set$SITUACION == 'FALLECIDO',])
+```
+
+Cambiamos a factores los necesarios
+
+```{r}
+
+
+# Deberíamos también tratar 
+
+ind.cualit <- c(which(names(train.set) == "SITUACION"),which(names(train.set)=="SEXO"), which(names(train.set)=="DM"):which(names(train.set)=="DC"))
+
+
+
+for(i in ind.cualit){
+  
+  train.set[,i] <- as.factor(train.set[, i])
+  test.set[,i] <- as.factor(test.set[, i])
+  
+}
+
+str(train.set)
+```
+
+Aplicamos p-subsets
+
+```{r}
+
+muertos <- train.set %>% dplyr::filter(SITUACION == "FALLECIDO")
+nrow(muertos)
+
+
+sanos <- train.set %>% filter(SITUACION == "CURADO")
+nmin <- nrow(muertos)
+alpha <- .01
+```
+
+Nos sale que hay 241 muertos
+
+```{r}
+curve(log(alpha)/(log(1-1/nmin)*np), from = 500, to = 5000, xname = "np", ylab = "p")
+grid()
+
+np <- ceiling(nmin*0.75)
+np
+```
+
+Queremos el 75%
+
+```{r}
+
+p <- log(alpha)/(log(1-1/nmin)*np)
+p
+```
+
+Tendremos que coger 7 modelos.
+
+```{r}
+prop.mayoritaria<-0.55
+set.seed(42)
+p <- ceiling(p)
+dfs <- list()
+# Seleccionamos todos los  sanos que usaremos, y los reordenamos
+
+for(k in 1:p){
+  id.muertos <- sample(x = 1:nrow(muertos), size = np) #Índices de clase minoritaria para cada subconjunto
+  id.sanos <- sample(x= 1:nrow(sanos), size = round(np*prop.mayoritaria/(1-prop.mayoritaria))) #Índices de la clase mayoritaria para cada subconjunto
+  
+  dfs[[k]] <- rbind(muertos[id.muertos,],sanos[id.sanos,])
+}
+```
+
+Ver cuantos vectores distintos hay y su dimensión (número de features)
+
+```{r}
+unique(unlist(lapply(dfs,dim)))
+```
+
+```{r}
+unique(lapply(dfs,function(x) prop.table(table(x$SITUACION))))
+```
+
+Siendo la función de predicción del modelo para cada modelo de cada subproblema
+
+```{r}
+prediccion <- function(conj.model, x, q = 0.75){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
+  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
+  for(modelo in conj.model) pred <- cbind(pred, predict(modelo,x))
+  pred <- apply(pred, 1, function(x) prop.table(table(x))["CURADO"])
+  ifelse(is.na(pred) | pred<q, "FALLECIDO", "CURADO")
+}
+```
+
+Nos falta el valor de b que es el número de modelos que habrá en cada conjunto. Para eso usamos formula similar a la superior:
+
+```{r}
+alpha_b <- 0.01
+b <- ceiling(log(alpha_b)/(log(1-1/np)*np))
+b
+
+```
+
+Las métricas, especialmente KAPPA (igual ROC después)
+
+```{r}
+metricas <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
+  c(
+    ACCURACY = MLmetrics::Accuracy(data[, "pred"], data[, "obs"]),
+    SENS = sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    SPEC = specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    PPV = posPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    NPV = negPredValue(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"),
+    KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
+    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive="FALLECIDO",negative="CURADO") + specificity(data[, "pred"], data[, "obs"],positive="FALLECIDO",negative="CURADO"))/2
+  )
+}
+```
+
+Ahora calculamos una manera de ver 'mt', que es las veces que el algoritmo se puede equivocar o no aportar suficiente en un problema dado. Como conforme el cardinal de E sea mayor, menos probable es que el modelo aporte, así que vamos a hacerlo inversamente proporcional al mismo. (b siempre es mayor que n)
+
+```{r}
+mt <- function(n) { ceiling((b-n) / 3) }
+plot(0:b, mt(0:b), xlab = "|E|", ylab = "mt")
+grid()
+
+```
+
+Vamos a crear nuestra lista de b modelos en el caso de random forest
+
+```{r}
+
+function_vector_ranger <-c()
+for(i in 1:b){
+
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    method <- "ranger"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    #Entrenamos el randomforest
+    rf <- train(
+      SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC,
+    )
+    
+    return(rf)
+  }
+  function_vector_ranger <- append(function_vector_ranger, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_ranger, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoRANGER.rds")
+
+```
+
+Ahora lo mismo pero con RLog (Naive)
+
+```{r}
+
+function_vector_rlog <-c()
+for(i in 1:b){
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(method = 'repeatedcv',summaryFunction = metricas,
+            number = 5,repeats =  5,search = 'random')
+    
+    method <- "glmnet"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos la Rlog
+    rlog <- train(SITUACION ~ .,
+      data = df.train,
+      method = "glmnet",
+      family = 'binomial',
+      metric = "KAPPA",
+      maximize = T,
+      trControl = tC,
+    )
+    
+    return(rlog)
+  }
+  
+  function_vector_rlog <- append(function_vector_rlog, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_rlog, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoRLOG.rds")
+
+```
+
+Ahora lo mismo pero con SVM
+
+```{r}
+
+function_vector_svm <-c()
+for(i in 1:b){
+ train_model <- 
+  
+  function_vector_svm <- append(function_vector_svm, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_svm, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoSVM.rds")
+
+```
+
+Por último con GBM
+
+```{r}
+
+function_vector_gbm <-c()
+for(i in 1:b){
+ train_model <- function(df.train, metricas) {
+
+    tC <- trainControl(
+      summaryFunction = metricas,
+      allowParallel = TRUE,
+      classProbs = TRUE
+    )
+    
+    method <- "gbm"
+    metric <- "KAPPA"
+    maximize <- T
+    
+    # Entrenamos el gradient boosting
+    gbm <- train(SITUACION ~ .,
+      data = df.train,
+      method = method,
+      metric = metric,
+      maximize = maximize,
+      trControl = tC,
+    )
+    
+    return(gbm)
+  }
+  
+  function_vector_gbm <- append(function_vector_gbm, train_model)
+}
+
+source("train_IPIP.R")
+
+E <- train_IPIP( p,b, np, prop.mayoritaria, "SITUACION", "FALLECIDO", "CURADO", train.set, test.set,dfs, 
+                        function_vector_gbm, prediccion,  metricas)
+
+saveRDS(E,"./TrainCompletoGBM.rds")
+
+```
+
+Ahora veamos los resultados:
+
+```{r}
+ensemble.ranger <- readRDS("TrainCompletoRANGER.rds")
+ensemble.rlog <- readRDS("TrainCompletoRLOG.rds")
+ensemble.svm <- readRDS("TrainCompletoSVM.rds")
+ensemble.gbm <- readRDS("TrainCompletoGBM.rds")
+```
+
+Veamos los modelos que son
+
+```{r}
+
+unlist(lapply(ensemble.ranger,length))
+unlist(lapply(ensemble.rlog,length))
+unlist(lapply(ensemble.svm,length))
+unlist(lapply(ensemble.gbm,length))
+```
+
+Ahora hacemos el ensemble y predecimos:
+
+```{r}
+prediccion.final <- function(ensemble, x, q = 0.5){
+  # Colocamos en cada fila de un conjunto de datos todas las predicciones para una muestra
+    pred <- as.data.frame(lapply(ensemble, function(e) prediccion(e,x)))
+  pred <- apply(pred, 1, function(x) prop.table(table(x))["CURADO"])
+  ifelse(is.na(pred) | pred<q, "FALLECIDO", "CURADO")
+}
+```
+
+```{r}
+metricas.final.rf<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.ranger, test.set[-1]))
+))
+
+metricas.final.rlog<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.rlog, test.set[-1]))
+))
+
+metricas.final.svm<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.svm, test.set[-1]))
+))
+
+metricas.final.gbm<- metricas(data.frame(
+    obs = test.set$SITUACION,
+    pred= as.factor(prediccion.final(ensemble.gbm, test.set[-1]))
+))
+
+
+```
+
+Vemos el resultado
+
+```{r}
+metricas.final.rf
+metricas.final.rlog
+metricas.final.svm
+metricas.final.gbm
+```

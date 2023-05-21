@@ -1,0 +1,5 @@
+- Usar kappa o usar otra metrica como AUC o F1
+- Realmente está habiendo un undersampling. Merece la pena? Debería undersamplear en términos de o usar un SMOTE
+  Smote para categoricas solo está en Python. Es facil de implementar podría hacerlo y usarlo para comparar
+  
+-

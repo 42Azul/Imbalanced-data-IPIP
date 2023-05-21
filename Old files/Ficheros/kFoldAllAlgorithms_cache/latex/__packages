@@ -1,0 +1,9 @@
+foreach
+iterators
+doParallel
+DataExplorer
+dplyr
+pROC
+ggplot2
+lattice
+caret

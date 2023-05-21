@@ -1,0 +1,884 @@
+[1] "FALLECIDO : 342"
+[1] "CURADO : 25718"
+######## Training seed algorithms naive approach ######## 
+Seed algorithm: 1
+Fold 1 out of 5
+------------------------------------
+Time difference of 6.543666 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 7.866965 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 8.157436 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 8.846177 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 10.02003 secs
+------------------------------------
+Seed algorithm: 2
+Fold 1 out of 5
+------------------------------------
+Time difference of 6.276007 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 5.222311 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 5.555776 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 6.138373 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 5.601864 secs
+------------------------------------
+Seed algorithm: 3
+Fold 1 out of 5
+------------------------------------
+maximum number of iterations reached 0.01513906 0.01269021Time difference of 7.950293 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+maximum number of iterations reached 0.01330683 0.01198908Time difference of 5.373533 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+maximum number of iterations reached 0.0101524 0.009943411Time difference of 5.627392 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+maximum number of iterations reached 0.009664005 0.009206078Time difference of 5.489108 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+maximum number of iterations reached 0.01048015 0.01011327Time difference of 6.78827 secs
+------------------------------------
+Seed algorithm: 4
+Fold 1 out of 5
+------------------------------------
+Time difference of 6.660656 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 6.727708 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 6.48235 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 6.693928 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 6.717814 secs
+------------------------------------
+SEED ALGORITHM NAIVE 
+       ACCURACY  SENS       SPEC      PPV       NPV       KAPPA     BAL_ACC  
+RANGER 0.9836938 0.1014493  0.9955286 0.2333333 0.9880372 0.1344706 0.5484889
+RLOG   0.9860918 0.06884058 0.9983961 0.3653846 0.9876436 0.1121272 0.5336183
+SVM    0.9867632 0          1         NaN       0.9867632 0         0.5      
+GBM    0.9843653 0.1014493  0.996209  0.2641509 0.9880453 0.1402813 0.5488291
+       F1        AUC       PR        MCC       GEOM      TIME    
+RANGER 0.9917688 0.9236346 0.1217822 0.1465198 0.3177981 8.286855
+RLOG   0.9929908 0.9534609 0.9955247 0.1540664 0.2621644 5.758866
+SVM    0.9933375 0.9380395 0.9989862 0         0         6.245719
+GBM    0.9921104 0.9427623 0.9985162 0.1569364 0.3179067 6.656491
+
+######## Training seed algorithms undersampled ######## 
+Seed algorithm: 1
+Fold 1 out of 5
+------------------------------------
+Time difference of 0.7495637 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 0.7538116 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 0.8151414 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 0.6937404 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 0.7455945 secs
+------------------------------------
+Seed algorithm: 2
+Fold 1 out of 5
+------------------------------------
+Time difference of 2.529852 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 2.467555 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 2.497325 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 2.548365 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 2.48701 secs
+------------------------------------
+Seed algorithm: 3
+Fold 1 out of 5
+------------------------------------
+Time difference of 0.5368075 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 0.5601709 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 0.5115819 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 0.5109458 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 0.5826089 secs
+------------------------------------
+Seed algorithm: 4
+Fold 1 out of 5
+------------------------------------
+Time difference of 0.7115169 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 0.7167776 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 0.7311661 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 0.6932631 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 0.7031794 secs
+------------------------------------
+SEED ALGORITHM UNDERSAMPLED 
+       ACCURACY  SENS      SPEC      PPV        NPV       KAPPA     BAL_ACC  
+RANGER 0.8839384 0.9311594 0.883305  0.09668924 0.9989556 0.1549197 0.9072322
+RLOG   0.8845139 0.9130435 0.8841312 0.09559939 0.9986824 0.1527737 0.8985874
+SVM    0.8916599 0.9130435 0.891373  0.1013269  0.9986931 0.1624524 0.9022083
+GBM    0.8957844 0.9130435 0.8955529 0.1049563  0.9986992 0.1685279 0.9042982
+       F1        AUC       PR        MCC       GEOM      TIME     
+RANGER 0.9375774 0.9480118 0.9670505 0.2791046 0.9069166 0.7515703
+RLOG   0.9379221 0.9550374 0.9922886 0.2741515 0.8984711 2.506021 
+SVM    0.9419862 0.9513904 0.9991811 0.2836507 0.9021432 0.540423 
+GBM    0.9443177 0.953398  0.9953973 0.2895089 0.9042559 0.7111806
+
+######## Training seed algorithms SMOTE ######## 
+Seed algorithm: 1
+Fold 1 out of 5
+------------------------------------
+Time difference of 1.163237 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 1.25697 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 1.275944 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 1.376156 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 1.191423 secs
+------------------------------------
+Seed algorithm: 2
+Fold 1 out of 5
+------------------------------------
+Time difference of 2.566606 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 2.525327 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 2.528377 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 2.53945 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 2.518163 secs
+------------------------------------
+Seed algorithm: 3
+Fold 1 out of 5
+------------------------------------
+Time difference of 0.6537445 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 0.7563283 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 0.7608666 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 0.9257488 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 0.6623077 secs
+------------------------------------
+Seed algorithm: 4
+Fold 1 out of 5
+------------------------------------
+Time difference of 1.05169 secs
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Time difference of 0.9688842 secs
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Time difference of 0.9818339 secs
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Time difference of 0.9862475 secs
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Time difference of 0.9122689 secs
+------------------------------------
+SEED ALGORITHM SMOTE
+       ACCURACY  SENS      SPEC      PPV        NPV       KAPPA     BAL_ACC  
+RANGER 0.8633159 0.9311594 0.8624058 0.08322539 0.9989304 0.1316931 0.8967826
+RLOG   0.8641792 0.9347826 0.8632321 0.08398437 0.9989876 0.133063  0.8990073
+SVM    0.8643231 0.9384058 0.8633293 0.08433735 0.9990439 0.1337232 0.9008675
+GBM    0.8718047 0.923913  0.8711057 0.0877193  0.9988297 0.1394191 0.8975094
+       F1        AUC       PR        MCC       GEOM      TIME     
+RANGER 0.9256612 0.9363613 0.9885429 0.255335  0.8961235 1.252746 
+RLOG   0.9261615 0.9552749 0.9955467 0.2573185 0.8982952 2.535585 
+SVM    0.9262417 0.9549392 0.9992387 0.258553  0.9000851 0.7517992
+GBM    0.9306057 0.9505526 0.9989717 0.2623129 0.8971209 0.9801848
+
+######## Training mixed exhaustive IPIP ######## 
+Fold 1 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.895039 with length 2
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.898942 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.885665 with length 3
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.895227 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.886943 with length 1
+Ensembles length in exhaustive MIXED fold: 1
+Length of ensembles:2 2 3 1 1
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.900712 with length 2
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.911765 with length 4
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.897641 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.908385 with length 4
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.852827 with length 2
+Ensembles length in exhaustive MIXED fold: 2
+Length of ensembles:2 4 1 4 2
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.900873 with length 2
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.888303 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.891791 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.898063 with length 2
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.900219 with length 2
+Ensembles length in exhaustive MIXED fold: 3
+Length of ensembles:2 2 1 2 2
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.898662 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.901106 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.901824 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.898759 with length 3
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.904856 with length 1
+Ensembles length in exhaustive MIXED fold: 4
+Length of ensembles:1 2 1 3 1
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.889611 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.895565 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.902299 with length 2
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.904541 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.906797 with length 1
+Ensembles length in exhaustive MIXED fold: 5
+Length of ensembles:1 1 2 1 1
+------------------------------------
+IPIP EXHAUST MIXED
+     ACCURACY  SENS     SPEC      PPV        NPV      KAPPA     BAL_ACC  
+[1,] 0.8578225 0.945915 0.8566513 0.08078921 0.999161 0.1277559 0.9012831
+     F1        AUC       PR        MCC       GEOM     TIME    
+[1,] 0.9224228 0.9561596 0.9984574 0.2532768 0.900171 31.23583
+
+######## Training exhaustive repeat IPIP ######## 
+Seed algorithm: 1
+Fold 1 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.903655 with length 4
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.884255 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.905449 with length 4
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.899985 with length 2
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.886392 with length 3
+Ensembles length in exhaustive REPEAT fold: 1
+Length of ensembles:4 2 4 2 3
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.907095 with length 3
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.893970 with length 4
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.875611 with length 3
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.867142 with length 3
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.887308 with length 2
+Ensembles length in exhaustive REPEAT fold: 2
+Length of ensembles:3 4 3 3 2
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.903140 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.893082 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.892318 with length 3
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.873670 with length 4
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.893963 with length 3
+Ensembles length in exhaustive REPEAT fold: 3
+Length of ensembles:1 1 3 4 3
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.904404 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.883504 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.884376 with length 2
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.886703 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.901169 with length 4
+Ensembles length in exhaustive REPEAT fold: 4
+Length of ensembles:1 1 2 1 4
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.893685 with length 4
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.901985 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.875225 with length 2
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.891834 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.879319 with length 1
+Ensembles length in exhaustive REPEAT fold: 5
+Length of ensembles:4 1 2 1 1
+------------------------------------
+Seed algorithm: 2
+Fold 1 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.885466 with length 2
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.898299 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.902512 with length 4
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.873973 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.894168 with length 2
+Ensembles length in exhaustive REPEAT fold: 1
+Length of ensembles:2 2 4 1 2
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.849391 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.905586 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.823701 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.864069 with length 4
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.895633 with length 2
+Ensembles length in exhaustive REPEAT fold: 2
+Length of ensembles:1 2 1 4 2
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.896733 with length 2
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.903924 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.831970 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.903619 with length 4
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.869566 with length 2
+Ensembles length in exhaustive REPEAT fold: 3
+Length of ensembles:2 1 1 4 2
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.896101 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.908544 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.885470 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.912152 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.904333 with length 1
+Ensembles length in exhaustive REPEAT fold: 4
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.907581 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.901174 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.908538 with length 2
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.894756 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.903147 with length 1
+Ensembles length in exhaustive REPEAT fold: 5
+Length of ensembles:1 2 2 1 1
+------------------------------------
+Seed algorithm: 3
+Fold 1 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.880636 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.881260 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.857382 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.887543 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.891999 with length 1
+Ensembles length in exhaustive REPEAT fold: 1
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.894054 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.853131 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.852262 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.826130 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.880144 with length 1
+Ensembles length in exhaustive REPEAT fold: 2
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.887931 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.832425 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.881319 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.891291 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.858633 with length 1
+Ensembles length in exhaustive REPEAT fold: 3
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.874912 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.886398 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.886471 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.886195 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.901366 with length 1
+Ensembles length in exhaustive REPEAT fold: 4
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.875067 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.895256 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.884152 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.880052 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.899356 with length 1
+Ensembles length in exhaustive REPEAT fold: 5
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Seed algorithm: 4
+Fold 1 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.876509 with length 3
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.892364 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.866174 with length 2
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.894599 with length 1
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.882244 with length 3
+Ensembles length in exhaustive REPEAT fold: 1
+Length of ensembles:3 2 2 1 3
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.889341 with length 3
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.911891 with length 4
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.904485 with length 3
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.848875 with length 3
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.914651 with length 3
+Ensembles length in exhaustive REPEAT fold: 2
+Length of ensembles:3 4 3 3 3
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.891767 with length 3
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.901276 with length 1
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.879260 with length 3
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.897696 with length 4
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.886765 with length 2
+Ensembles length in exhaustive REPEAT fold: 3
+Length of ensembles:3 1 3 4 2
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.901329 with length 1
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.884408 with length 3
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.873359 with length 3
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.877460 with length 2
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.871697 with length 3
+Ensembles length in exhaustive REPEAT fold: 4
+Length of ensembles:1 3 3 2 3
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensemble number 1 of 5
+Max metric BAL_ACC of ensemble is 0.910069 with length 2
+Ensemble number 2 of 5
+Max metric BAL_ACC of ensemble is 0.909746 with length 2
+Ensemble number 3 of 5
+Max metric BAL_ACC of ensemble is 0.869947 with length 1
+Ensemble number 4 of 5
+Max metric BAL_ACC of ensemble is 0.873300 with length 3
+Ensemble number 5 of 5
+Max metric BAL_ACC of ensemble is 0.889167 with length 3
+Ensembles length in exhaustive REPEAT fold: 5
+Length of ensembles:2 2 1 3 3
+------------------------------------
+IPIP EXHAUST REPEATED
+       ACCURACY  SENS      SPEC      PPV        NPV       KAPPA     BAL_ACC  
+RANGER 0.8499668 0.9495461 0.8486416 0.07817251 0.9992125 0.1230207 0.8990938
+RLOG   0.8662354 0.9429846 0.8652151 0.0857457  0.9991246 0.1363322 0.9040998
+SVM    0.8544266 0.9415114 0.8532685 0.07897667 0.99909   0.1244754 0.89739  
+GBM    0.8594534 0.9436933 0.8583329 0.08153981 0.9991282 0.1290457 0.9010131
+       F1        AUC       PR        MCC       GEOM      TIME    
+RANGER 0.9176529 0.9472568 0.9819815 0.248216  0.8975577 47.77643
+RLOG   0.9273058 0.9550922 0.995967  0.2617406 0.9032153 98.8148 
+SVM    0.9204023 0.9529532 0.9971429 0.2489875 0.8962699 61.94821
+GBM    0.9233813 0.9511054 0.9991152 0.2543159 0.8999948 36.94738
+
+######## Training sequential repeat IPIP ######## 
+Seed algorithm: 1
+Fold 1 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 1
+Length of ensembles:6 4 2 3 5
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 2
+Length of ensembles:1 1 3 5 2
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 3
+Length of ensembles:3 1 2 2 3
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 4
+Length of ensembles:2 2 2 1 2
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 5
+Length of ensembles:1 2 2 4 1
+------------------------------------
+Seed algorithm: 2
+Fold 1 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 1
+Length of ensembles:2 2 2 4 2
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 2
+Length of ensembles:2 1 1 1 1
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 3
+Length of ensembles:1 1 1 2 1
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 4
+Length of ensembles:2 4 1 1 1
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 5
+Length of ensembles:1 2 3 1 2
+------------------------------------
+Seed algorithm: 3
+Fold 1 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 1
+Length of ensembles:1 1 2 1 1
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 2
+Length of ensembles:1 1 3 3 1
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 3
+Length of ensembles:1 3 2 1 1
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 4
+Length of ensembles:2 1 1 3 1
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 5
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Seed algorithm: 4
+Fold 1 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 1
+Length of ensembles:1 1 3 3 3
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 2
+Length of ensembles:4 3 2 3 2
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 3
+Length of ensembles:1 1 1 1 1
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 4
+Length of ensembles:3 3 3 1 5
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 5
+Length of ensembles:3 4 3 1 1
+------------------------------------
+IPIP SEQUENTIAL REPEAT
+       ACCURACY  SENS      SPEC      PPV        NPV       KAPPA     BAL_ACC  
+RANGER 0.8283152 0.9488135 0.826712  0.06905586 0.9991789 0.1067244 0.8877628
+RLOG   0.8621403 0.9341456 0.861181  0.08343332 0.9989892 0.1320729 0.8976633
+SVM    0.8525083 0.9407788 0.8513341 0.07785453 0.9990775 0.1225003 0.8960565
+GBM    0.8652956 0.9437012 0.8642527 0.08481043 0.9991363 0.1347629 0.903977 
+       F1        AUC       PR        MCC       GEOM      TIME    
+RANGER 0.9046143 0.9466527 0.9783549 0.2297064 0.8855353 30.41125
+RLOG   0.924854  0.9543376 0.9966534 0.2556683 0.8967611 52.09544
+SVM    0.9192778 0.954202  0.9979444 0.2467858 0.8948858 30.14232
+GBM    0.9267934 0.9465459 0.9986728 0.2603673 0.9030507 20.88231
+
+######## Training sequential mixed IPIP ######## 
+Fold 1 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 1
+Length of ensembles:4 2 2 2 2
+------------------------------------
+Fold 2 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 2
+Length of ensembles:6 2 4 4 3
+------------------------------------
+Fold 3 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 3
+Length of ensembles:4 4 2 4 1
+------------------------------------
+Fold 4 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 4
+Length of ensembles:1 2 2 2 3
+------------------------------------
+Fold 5 out of 5
+------------------------------------
+Ensembles length in sequential in fold: 5
+Length of ensembles:4 4 4 4 1
+------------------------------------
+IPIP SEQUENTIAL MIXED
+     ACCURACY SENS      SPEC     PPV        NPV       KAPPA    BAL_ACC  
+[1,] 0.851971 0.9466157 0.850712 0.07832798 0.9991677 0.123353 0.8986639
+     F1        AUC       PR        MCC       GEOM      TIME    
+[1,] 0.9189186 0.9545804 0.9970679 0.2484187 0.8973192 41.94225
+
+IPIP SEQUENTIAL REPEAT
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	0.8283152	*0.9488135	0.826712	0.06905586	*0.9991789	0.1067244	0.8877628	0.9046143	0.9466527	0.9783549	0.2297064	0.8855353	30.41125	
+RLOG	0.8621403	0.9341456	0.861181	0.08343332	0.9989892	0.1320729	0.8976633	0.924854	*0.9543376	0.9966534	0.2556683	0.8967611	52.09544	
+SVM	    0.8525083	0.9407788	0.8513341	0.07785453	0.9990775	0.1225003	0.8960565	0.9192778	0.954202	0.9979444	0.2467858	0.8948858	30.14232	
+GBM	    *0.8652956	0.9437012	*0.8642527	*0.08481043	0.9991363	*0.1347629	*0.903977	*0.9267934	0.9465459	*0.9986728	*0.2603673	*0.9030507	*20.88231	
+
+IPIP SEQUENTIAL MIXED
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	*0.851971	*0.9466157	*0.850712	*0.07832798	*0.9991677	*0.123353	*0.8986639	*0.9189186	*0.9545804	*0.9970679	*0.2484187	*0.8973192	*41.94225	
+
+IPIP EXHAUST REPEAT
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	0.8499668	**0.9495461	0.8486416	0.07817251	**0.9992125	0.1230207	0.8990938	0.9176529	0.9472568	0.9819815	0.248216	0.8975577	47.77643	
+RLOG	*0.8662354	0.9429846	*0.8652151	*0.0857457	0.9991246	*0.1363322	*0.9040998	*0.9273058	*0.9550922	0.995967	*0.2617406	*0.9032153	98.8148	
+SVM	    0.8544266	0.9415114	0.8532685	0.07897667	0.99909	    0.1244754	0.89739	    0.9204023	0.9529532	0.9971429	0.2489875	0.8962699	61.94821	
+GBM	    0.8594534	0.9436933	0.8583329	0.08153981	0.9991282	0.1290457	0.9010131	0.9233813	0.9511054	*0.9991152	0.2543159	0.8999948	*36.94738	
+
+IPIP EXHAUST MIXED
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	*0.8578225	*0.945915	*0.8566513	*0.08078921	*0.999161	*0.1277559	*0.9012831	*0.9224228	**0.9561596	*0.9984574	*0.2532768	*0.900171	*31.23583	
+
+SEED
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	0.9836938	*0.1014493	0.9955286	0.2333333	0.9880372	0.1344706	0.5484889	0.9917688	0.9236346	0.1217822	0.1465198	0.3177981	8.286855	
+RLOG	0.9860918	0.06884058	0.9983961	**0.3653846	0.9876436	0.1121272	0.5336183	0.9929908	*0.9534609	0.9955247	0.1540664	0.2621644	*5.758866	
+SVM	    **0.9867632	0	        **1		    NaN         0.9867632	0	        0.5	        **0.9933375	0.9380395	*0.9989862	0	        0	        6.245719	
+GBM	    0.9843653	*0.1014493	0.996209	0.2641509	*0.9880453	*0.1402813	*0.5488291	0.9921104	0.9427623	0.9985162	*0.1569364	*0.3179067	6.656491	
+
+SEED UNDERSAMPLED
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	0.8839384	*0.9311594	0.883305	0.09668924	*0.9989556	0.1549197	**0.9072322	0.9375774	0.9480118	0.9670505	0.2791046	**0.9069166	0.7515703	
+RLOG	0.8845139	0.9130435	0.8841312	0.09559939	0.9986824	0.1527737	0.8985874	0.9379221	*0.9550374	0.9922886	0.2741515	0.8984711	2.506021	
+SVM	    0.8916599	0.9130435	0.891373	0.1013269	0.9986931	0.1624524	0.9022083	0.9419862	0.9513904	*0.9991811	0.2836507	0.9021432	**0.540423	
+GBM	    *0.8957844	0.9130435	*0.8955529	*0.1049563	0.9986992	**0.1685279	0.9042982	*0.9443177	0.953398	0.9953973	**0.2895089	0.9042559	0.7111806	
+
+SMOTE
+		ACCURACY	SENS		SPEC		PPV			NPV			KAPPA		BAL_ACC		F1			AUC			PR			MCC			GEOM		TIME		
+RANGER	0.8633159	0.9311594	0.8624058	0.08322539	0.9989304	0.1316931	0.8967826	0.9256612	0.9363613	0.9885429	0.255335	0.8961235	1.252746	
+RLOG	0.8641792	0.9347826	0.8632321	0.08398437	0.9989876	0.133063	0.8990073	0.9261615	*0.9552749	0.9955467	0.2573185	0.8982952	2.535585	
+SVM	    0.8643231	*0.9384058	0.8633293	0.08433735	*0.9990439	0.1337232	*0.9008675	0.9262417	0.9549392	**0.9992387	0.258553	*0.9000851	*0.7517992	
+GBM	    *0.8718047	0.923913	*0.8711057	*0.0877193	0.9988297	*0.1394191	0.8975094	*0.9306057	0.9505526	0.9989717	*0.2623129	0.8971209	0.9801848	
+
