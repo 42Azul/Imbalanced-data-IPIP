@@ -10,7 +10,7 @@ This project is a part of a Bachelor's thesis focused on handling imbalanced dat
 
 The IPIP (Imbalanced Problem Identification and Prediction) approach is utilized to address the imbalanced data problem. The algorithm forms ensembles by combining multiple base learners, including SVM, RLOG, RANGER, and GBM. Each base learner brings its unique strengths and characteristics to the ensemble, allowing for a comprehensive analysis of the imbalanced data.
 
-The main focus is to compare the different IPIP configurations to the usual imbalanced data approaches such as naive algorithms, undersampling or SMOTE (Synthetic Minority Oversampling Technique) and see which of them gets a better info over test and training data.
+The main focus is to compare the different IPIP configurations to the usual imbalanced data approaches such as naive algorithms, undersampling or SMOTE (Synthetic Minority Oversampling Technique) and see which of them gets a better metrics when executing over different datasets.
 
 ### Repository Structure
 
