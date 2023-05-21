@@ -20,7 +20,7 @@ library(DMwR)
 NUM_CORES = detectCores()-1
 options(mc.cores = NUM_CORES)
 
-sink("FILE_OUTPUT.txt")
+sink("./Outputs/CurrentOutput.txt")
 
 #Set random seed
 set.seed(42)
@@ -30,7 +30,7 @@ First of all we obtain the needed data and do the preprocessing to the
 necessary elements as well as set up the output variable.
 
 ```{r}
-data <- read.csv("../../data_tfg.csv")
+data <- read.csv("../Datasets/data_tfg.csv")
 ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
 
  for(i in ind.cualit){
