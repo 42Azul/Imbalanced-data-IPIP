@@ -118,10 +118,11 @@ specificity_mine <- function(TP, TN, FP, FN) {
 # }
 
 metrics <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
-
+    sensi = sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ)
     met <- c(
     KAPPA = psych::cohen.kappa(cbind(data[, "obs"],data[, "pred"]))$kappa,
-    BAL_ACC = (sensitivity(data[, "pred"],data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ) + specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ))/2
+    SENS = sensi,
+    BAL_ACC = ( sensi + specificity(data[, "pred"], data[, "obs"],positive=OUTPUT_MIN,negative=OUTPUT_MAJ))/2
     )
 
   return(met)
@@ -488,7 +489,7 @@ if not OUTPUT_MIN.
 
 default_q = 0.75
 
-prediction <- function(conj.model, x, q = default_q){ #q=0.75, pero se deberían probar valores como 0.5, 0.25, 0.75...
+prediction <- function(conj.model, x, q = default_q){ 
   pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
   for(model in conj.model) pred <- cbind(pred, predict(model,x))
   nElems = ncol(pred)
@@ -499,7 +500,6 @@ prediction <- function(conj.model, x, q = default_q){ #q=0.75, pero se deberían
 }
 
 prediction.final <- function(ensemble, x, q = default_q){
-  # Colocamos en cada fila de un conjunto de data todas las predictiones para una muestra
   pred <- as.data.frame(lapply(ensemble, function(e) prediction(e,x)))
   nElems = ncol(pred)
   nElems <- ncol(pred)
@@ -588,7 +588,7 @@ model as our final response.
 
 ```{r}
 train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, 
-                        configuration, prediction, metrics, b, np,  p, mt, CHOSEN_METRIC = "KAPPA"){
+                        configuration, prediction, metrics, b, np,  p, mt, TRAIN_METRIC = "KAPPA", SELECT_METRIC = "SENS"){
   
   nmin = sum(train.set[[OUTPUT]] == min_str)
   nmaj = sum(train.set[[OUTPUT]] == maj_str)
@@ -638,12 +638,12 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
     
       #We train with the models in configuration with a sequential approach
 
-      model <- configuration[[length(Ek$ensemble)+1]](df[ind.train,], metrics, OUTPUT, CHOSEN_METRIC)
+      model <- configuration[[length(Ek$ensemble)+1]](df[ind.train,], metrics, OUTPUT, TRAIN_METRIC)
 
       
       if (length(Ek$ensemble)==0){
           u <- -Inf;
-          names(u) <- CHOSEN_METRIC;
+          names(u) <- SELECT_METRIC;
           metrics.ensemble <- u
       }
       
@@ -654,7 +654,7 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
         pred= as.factor(pred)
       ))
       #We check if the new model changes the result. If it does not we start trying again
-      if(metrics.ensemble.new[CHOSEN_METRIC] <= metrics.ensemble[CHOSEN_METRIC]){ 
+      if(metrics.ensemble.new[SELECT_METRIC] <= metrics.ensemble[SELECT_METRIC]){ 
         i <- i+1
       } else{ 
         #If the ensemble tries to enlarge again, we restart the enlarging posibilities.
@@ -700,7 +700,7 @@ powerset = function(s, test.set){
 }
 
 
-train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, configuration, prediction, metrics, np,  p, CHOSEN_METRIC = "KAPPA"){
+train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, configuration, prediction, metrics, np,  p, TRAIN_METRIC = "KAPPA", SELECT_METRIC = "SENS"){
 
 
   
@@ -749,7 +749,7 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
       Ek <- list()
       for(conf in 1:length(configuration)){
 
-        Ek[[length(Ek)+1]] <- configuration[[conf]](train.test, metrics, OUTPUT, CHOSEN_METRIC)
+        Ek[[length(Ek)+1]] <- configuration[[conf]](train.test, metrics, OUTPUT, TRAIN_METRIC)
 
       }
       
@@ -767,7 +767,7 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
         met <- metrics(data.frame(
               obs = test.set[[OUTPUT]],
               pred = as.factor(pred)
-          ))[CHOSEN_METRIC]
+          ))[SELECT_METRIC]
           return(met)
       }
       
@@ -780,7 +780,7 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
       
       max_metric_value <- max(unlist(max_metric_list))
       max_set <- all_sets[[which.max(unlist(max_metric_list))]]$ensemble
-      cat(sprintf("Max metric %s of ensemble is %f with length %d\n", CHOSEN_METRIC, max_metric_value, length(max_set)))
+      cat(sprintf("Max metric %s of ensemble is %f with length %d\n", SELECT_METRIC, max_metric_value, length(max_set)))
       E[[length(E)+1]] <- max_set
   
   }
