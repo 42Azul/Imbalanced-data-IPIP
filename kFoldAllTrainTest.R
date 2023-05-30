@@ -22,7 +22,7 @@ set.seed(42)
 
 
 ## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-data <- read.csv("../Datasets/data_tfg.csv", nrows=2000)
+data <- read.csv("../Datasets/data_tfg.csv")
 ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
 OUTPUT_VAR = "SITUACION"
 
@@ -1316,14 +1316,8 @@ print_with_asterisks <- function(matrix, best_values, elem) {
 }
 
 save(matrix_mean.IPIPrepeated, matrix_mean.IPIPseqMixed, matrix_mean.IPIPexhaustRepeat,
-     matrix_mean.IPIPexhaustMixed, matrix_mean.seed, matrix_mean.seed_under, matrix_mean.SMOTE,
+     matrix_mean.IPIPexhaustMixed, matrix_mean.seed, matrix_mean.seed_under, matrix_mean.SMOTE,matrix_mean.test.IPIPrepeated, matrix_mean.test.IPIPseqMixed, matrix_mean.test.IPIPexhaustRepeat,matrix_mean.test.IPIPexhaustMixed, matrix_mean.test.seed, matrix_mean.test.seed_under, matrix_mean.test.SMOTE,
      file = "./Outputs/saved_matrices.RData")
-
-
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
 
 get_better_data <- function(matrix){
   best_data <- list()
@@ -1338,6 +1332,10 @@ get_better_data <- function(matrix){
   return(best_data)
 }
 
+
+## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on train ALL\n")
 
 best_values <- sapply( list(
   matrix_mean.IPIPrepeated,
@@ -1372,6 +1370,44 @@ print_with_asterisks(matrix_mean.SMOTE, best_values, 7)
 
 
 ## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on test ALL\n")
+
+best_values <- sapply( list(
+  matrix_mean.test.IPIPrepeated,
+  matrix_mean.test.IPIPseqMixed,
+  matrix_mean.test.IPIPexhaustRepeat,
+  matrix_mean.test.IPIPexhaustMixed,
+  matrix_mean.test.seed,
+  matrix_mean.test.seed_under,
+  matrix_mean.test.SMOTE
+), get_better_data)
+
+cat("IPIP SEQUENTIAL REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPrepeated,best_values,1)
+
+cat("IPIP SEQUENTIAL MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPseqMixed,best_values,2)
+
+cat("IPIP EXHAUST REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustRepeat, best_values, 3)
+
+cat("IPIP EXHAUST MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustMixed, best_values, 4)
+
+cat("SEED\n")
+print_with_asterisks(matrix_mean.test.seed, best_values, 5)
+
+cat("SEED UNDERSAMPLED\n")
+print_with_asterisks(matrix_mean.test.seed_under, best_values, 6)
+
+cat("SMOTE\n")
+print_with_asterisks(matrix_mean.test.SMOTE, best_values, 7)
+
+
+## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on train ONLY IPIP\n")
 
 best_values <- sapply( list(
   matrix_mean.IPIPrepeated,
@@ -1392,4 +1428,28 @@ print_with_asterisks(matrix_mean.IPIPexhaustRepeat, best_values, 3)
 cat("IPIP EXHAUST MIXED\n")
 print_with_asterisks(matrix_mean.IPIPexhaustMixed, best_values, 4)
 
+
+
+## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on test ONLY IPIP\n")
+
+best_values <- sapply( list(
+  matrix_mean.test.IPIPrepeated,
+  matrix_mean.test.IPIPseqMixed,
+  matrix_mean.test.IPIPexhaustRepeat,
+  matrix_mean.test.IPIPexhaustMixed
+), get_better_data)
+
+cat("IPIP SEQUENTIAL REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPrepeated,best_values,1)
+
+cat("IPIP SEQUENTIAL MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPseqMixed,best_values,2)
+
+cat("IPIP EXHAUST REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustRepeat, best_values, 3)
+
+cat("IPIP EXHAUST MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustMixed, best_values, 4)
 
