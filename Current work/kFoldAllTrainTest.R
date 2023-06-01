@@ -22,9 +22,16 @@ set.seed(42)
 
 
 ## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-data <- read.csv("../Datasets/data_tfg.csv")
-ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
-OUTPUT_VAR = "SITUACION"
+data <- read.csv("../Datasets/adult.csv")
+
+ind.cualit <- c(which(names(data) == "workclass"),which(names(data)=="education"),which(names(data)=="income"),which(names(data)=="marital.status"):which(names(data)=="gender"),which(names(data)=="native.country"))
+OUTPUT_VAR = "income"
+
+data[[OUTPUT_VAR]] = factor(data[[OUTPUT_VAR]], levels = c("<=50K", ">50K"), labels = c("Low", "High"))
+
+#For covid dataset
+#ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
+#OUTPUT_VAR = "SITUACION"
 
 
 # For correlation plot of some characteristics
@@ -1134,6 +1141,7 @@ cat("\n")
 ## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 mean_metrics.IPIPrepeated <- list()
+mean_metrics.test.IPIPrepeated <- list()
 mean_time.IPIPrepeated <- list()
 
 cat("######## Training sequential repeat IPIP ######## \n")
@@ -1181,6 +1189,7 @@ for(alg in 1:length(seed_algorithms)){
   }
 
   mean_metrics.IPIPrepeated <- append(mean_metrics.IPIPrepeated, apply(matrix(unlist(metrics.final.IPIPrepeated), ncol= number_metrics, byrow=T), 2, mean))
+  mean_metrics.test.IPIPrepeated <- append(mean_metrics.test.IPIPrepeated, apply(matrix(unlist(metrics.test.IPIPrepeated), ncol= number_metrics, byrow=T), 2, mean))
 
 }
 
@@ -1191,7 +1200,7 @@ colnames(matrix_mean.IPIPrepeated) <- metric_names
 rownames(matrix_mean.IPIPrepeated) <- alg_names
 
 matrix_mean.test.IPIPrepeated <- matrix(mean_metrics.test.IPIPrepeated, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.test.IPIPrepeated <- cbind(matrix_mean.test.IPIPrepeated, lapply(mean_time.test.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
+matrix_mean.test.IPIPrepeated <- cbind(matrix_mean.test.IPIPrepeated, lapply(mean_time.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
 colnames(matrix_mean.test.IPIPrepeated) <- metric_names
 rownames(matrix_mean.test.IPIPrepeated) <- alg_names
 
@@ -1263,7 +1272,7 @@ matrix_mean.IPIPseqMixed <- matrix(mean_metrics.IPIPseqMixed, nrow = 1, ncol = n
 matrix_mean.IPIPseqMixed <- cbind(matrix_mean.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
 colnames(matrix_mean.IPIPseqMixed) <- metric_names
 
-mean_metrics.test.IPIPseqMixed <- append(mean_metrics.test.IPIPseqMixed, apply(matrix(unlist(metrics.final.test.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
+mean_metrics.test.IPIPseqMixed <- append(mean_metrics.test.IPIPseqMixed, apply(matrix(unlist(metrics.test.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
 matrix_mean.test.IPIPseqMixed <- matrix(mean_metrics.test.IPIPseqMixed, nrow = 1, ncol = number_metrics, byrow = TRUE)
 matrix_mean.test.IPIPseqMixed <- cbind(matrix_mean.test.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
 colnames(matrix_mean.test.IPIPseqMixed) <- metric_names
@@ -1317,7 +1326,7 @@ print_with_asterisks <- function(matrix, best_values, elem) {
 
 save(matrix_mean.IPIPrepeated, matrix_mean.IPIPseqMixed, matrix_mean.IPIPexhaustRepeat,
      matrix_mean.IPIPexhaustMixed, matrix_mean.seed, matrix_mean.seed_under, matrix_mean.SMOTE,matrix_mean.test.IPIPrepeated, matrix_mean.test.IPIPseqMixed, matrix_mean.test.IPIPexhaustRepeat,matrix_mean.test.IPIPexhaustMixed, matrix_mean.test.seed, matrix_mean.test.seed_under, matrix_mean.test.SMOTE,
-     file = "./Outputs/saved_matrices.RData")
+     file = "./saved_matrices.RData")
 
 get_better_data <- function(matrix){
   best_data <- list()

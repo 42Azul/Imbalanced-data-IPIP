@@ -758,8 +758,10 @@ rownames(matrix_mean.test.seed) <- alg_names
 
 
 cat("SEED ALGORITHM NAIVE \n")
+cat("On train\n")
 print(matrix_mean.seed)
 cat("\n")
+cat("On test\n")
 print(matrix_mean.test.seed)
 cat("\n")
 
@@ -848,8 +850,10 @@ rownames(matrix_mean.test.seed_under) <- alg_names
 
 
 cat("SEED ALGORITHM UNDERSAMPLED \n")
+cat("On train\n")
 print(matrix_mean.seed_under)
 cat("\n")
+cat("On test\n")
 print(matrix_mean.test.seed_under)
 cat("\n")
 
@@ -952,8 +956,10 @@ rownames(matrix_mean.test.SMOTE) <- alg_names
 
 
 cat("SEED ALGORITHM SMOTE\n")
+cat("On train\n")
 print(matrix_mean.SMOTE)
 cat("\n")
+cat("On test\n")
 print(matrix_mean.test.SMOTE)
 cat("\n")
 
@@ -976,6 +982,8 @@ mean_metrics.test.IPIPexhaustMixed <- list()
 mean_time.IPIPexhaustMixed = 0
 metrics.final.IPIPexhaustMixed <- list()
 metrics.test.IPIPexhaustMixed <- list()
+
+
 cat("######## Training mixed exhaustive IPIP ######## \n")
  for (i in 1:length(folds)) {
     cat(sprintf("Fold %d out of %d\n",i, length(folds)))
@@ -1009,7 +1017,7 @@ cat("######## Training mixed exhaustive IPIP ######## \n")
     metrics.final.IPIPexhaustMixed <- append( metrics.final.IPIPexhaustMixed, 
       metrics_all(metricPreparedFrameIPIP(ensemble.fold, test.set)))
     
-    metrics.test.IPIPexhaustMixed <- append( metrics.final.IPIPexhaustMixed, 
+    metrics.test.IPIPexhaustMixed <- append( metrics.test.IPIPexhaustMixed, 
       metrics_all(metricPreparedFrameIPIP(ensemble.fold, data.test)))
       cat("------------------------------------\n")
 
@@ -1035,8 +1043,10 @@ matrix_mean.test.IPIPexhaustMixed <- cbind(matrix_mean.test.IPIPexhaustMixed, as
 colnames(matrix_mean.test.IPIPexhaustMixed) <- metric_names
 
 cat("IPIP EXHAUST MIXED\n")
+cat("On train\n")
 print(matrix_mean.IPIPexhaustMixed)
 cat("\n")
+cat("On test\n")
 print(matrix_mean.test.IPIPexhaustMixed)
 cat("\n")
 
@@ -1044,6 +1054,7 @@ cat("\n")
 
 ## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
 mean_metrics.IPIPexhaustRepeat <- list()
+mean_metrics.test.IPIPexhaustRepeat <- list()
 mean_time.IPIPexhaustRepeat <- list()
 
 cat("######## Training exhaustive repeat IPIP ######## \n")
@@ -1053,6 +1064,8 @@ for(alg in 1:length(seed_algorithms)){
   
    mean_time.IPIPexhaustRepeat[[alg]] = 0
    metrics.final.IPIPexhaustRepeat <- list()
+   metrics.test.IPIPexhaustRepeat <- list()
+   
    for (i in 1:length(folds)) {
       cat(sprintf("Fold %d out of %d\n",i, length(folds)))
       cat("------------------------------------\n")
@@ -1082,29 +1095,38 @@ for(alg in 1:length(seed_algorithms)){
     
   
       metrics.final.IPIPexhaustRepeat <- append( metrics.final.IPIPexhaustRepeat, 
-        metrics_all(data.frame(
-        obs = test.set[[OUTPUT_VAR]],
-        pred= as.factor(prediction.final(ensemble.fold, 
-                                         test.set[,names(test.set) != OUTPUT_VAR])),
-        prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
-        obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
-        )))
+      metrics_all(metricPreparedFrameIPIP(ensemble.fold, test.set)))
+    
+      metrics.test.IPIPexhaustRepeat <- append( metrics.test.IPIPexhaustRepeat, 
+      metrics_all(metricPreparedFrameIPIP(ensemble.fold, data.test)))
           cat("------------------------------------\n")
 
    }
-   mean_metrics.IPIPexhaustRepeat <- append(mean_metrics.IPIPexhaustRepeat, 
+    mean_metrics.IPIPexhaustRepeat <- append(mean_metrics.IPIPexhaustRepeat, 
     apply(matrix(unlist(metrics.final.IPIPexhaustRepeat), ncol= number_metrics, byrow=T), 2, mean))
+   
+    mean_metrics.test.IPIPexhaustRepeat <- append(mean_metrics.test.IPIPexhaustRepeat, 
+    apply(matrix(unlist(metrics.test.IPIPexhaustRepeat), ncol= number_metrics, byrow=T), 2, mean))
 }
 
 matrix_mean.IPIPexhaustRepeat <- matrix(mean_metrics.IPIPexhaustRepeat, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
 matrix_mean.IPIPexhaustRepeat <- cbind(matrix_mean.IPIPexhaustRepeat, lapply(mean_time.IPIPexhaustRepeat, function(x){as.numeric(x, units="secs")/length(folds)}))
-
-
 colnames(matrix_mean.IPIPexhaustRepeat) <- metric_names
 rownames(matrix_mean.IPIPexhaustRepeat) <- alg_names
 
+
+matrix_mean.test.IPIPexhaustRepeat <- matrix(mean_metrics.test.IPIPexhaustRepeat, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.test.IPIPexhaustRepeat <- cbind(matrix_mean.test.IPIPexhaustRepeat, lapply(mean_time.IPIPexhaustRepeat, function(x){as.numeric(x, units="secs")/length(folds)}))
+colnames(matrix_mean.test.IPIPexhaustRepeat) <- metric_names
+rownames(matrix_mean.test.IPIPexhaustRepeat) <- alg_names
+
+
 cat("IPIP EXHAUST REPEATED\n")
+cat("On validation\n")
 print(matrix_mean.IPIPexhaustRepeat)
+cat("\n")
+cat("On test\n")
+print(matrix_mean.test.IPIPexhaustRepeat)
 cat("\n")
 
 
@@ -1120,6 +1142,7 @@ for(alg in 1:length(seed_algorithms)){
    cat(sprintf("Seed algorithm: %d\n", alg))
    mean_time.IPIPrepeated[[alg]] = 0
    metrics.final.IPIPrepeated <- list()
+   metrics.test.IPIPrepeated <- list()
   
    for (i in 1:length(folds)) {
       cat(sprintf("Fold %d out of %d\n",i, length(folds)))
@@ -1149,13 +1172,10 @@ for(alg in 1:length(seed_algorithms)){
       cat("\n")
       
       metrics.final.IPIPrepeated <- append( metrics.final.IPIPrepeated, 
-        metrics_all(data.frame(
-        obs = test.set[[OUTPUT_VAR]],
-        pred= as.factor(prediction.final(ensemble.fold, 
-                                         test.set[,names(test.set) != OUTPUT_VAR])),
-        prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
-        obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
-      )))
+      metrics_all(metricPreparedFrameIPIP(ensemble.fold, test.set)))
+    
+      metrics.test.IPIPrepeated <- append( metrics.test.IPIPrepeated, 
+      metrics_all(metricPreparedFrameIPIP(ensemble.fold, data.test)))
         cat("------------------------------------\n")
 
   }
@@ -1167,17 +1187,20 @@ for(alg in 1:length(seed_algorithms)){
 
 matrix_mean.IPIPrepeated <- matrix(mean_metrics.IPIPrepeated, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
 matrix_mean.IPIPrepeated <- cbind(matrix_mean.IPIPrepeated, lapply(mean_time.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
-
-
-
-
-
 colnames(matrix_mean.IPIPrepeated) <- metric_names
 rownames(matrix_mean.IPIPrepeated) <- alg_names
 
+matrix_mean.test.IPIPrepeated <- matrix(mean_metrics.test.IPIPrepeated, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
+matrix_mean.test.IPIPrepeated <- cbind(matrix_mean.test.IPIPrepeated, lapply(mean_time.test.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
+colnames(matrix_mean.test.IPIPrepeated) <- metric_names
+rownames(matrix_mean.test.IPIPrepeated) <- alg_names
+
 
 cat("IPIP SEQUENTIAL REPEAT\n")
+cat("On train:\n")
 print(matrix_mean.IPIPrepeated)
+cat("On test:\n")
+print(matrix_mean.test.IPIPrepeated)
 cat("\n")
 
 
@@ -1185,14 +1208,15 @@ cat("\n")
 
 ## ---- warning=FALSE, cache = TRUE----------------------------------------------------------------------------------------------------------------------------------------------------------
 mean_metrics.IPIPseqMixed<- list()
-mean_time.IPIPseqMixed <- list()
-   mean_time.IPIPseqMixed = 0 
+mean_metrics.test.IPIPseqMixed<- list()
+mean_time.IPIPseqMixed = 0 
    
 conf<- c(seed_algorithms, seed_algorithms)
 cat("######## Training sequential mixed IPIP ######## \n")
 
 
    metrics.final.IPIPseqMixed <- list()
+   metrics.test.IPIPseqMixed <- list()
   
    for (i in 1:length(folds)) {
       cat(sprintf("Fold %d out of %d\n",i, length(folds)))
@@ -1223,13 +1247,10 @@ cat("######## Training sequential mixed IPIP ######## \n")
     
       
       metrics.final.IPIPseqMixed <- append( metrics.final.IPIPseqMixed, 
-        metrics_all(data.frame(
-        obs = test.set[[OUTPUT_VAR]],
-        pred= as.factor(prediction.final(ensemble.fold, 
-                                         test.set[,names(test.set) != OUTPUT_VAR])),
-        prob= prediction.final.prob(ensemble.fold, test.set[,names(test.set) != OUTPUT_VAR]),
-        obs.prob = as.numeric(ifelse(test.set[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
-      )))
+      metrics_all(metricPreparedFrameIPIP(ensemble.fold, test.set)))
+    
+      metrics.test.IPIPseqMixed <- append( metrics.test.IPIPseqMixed, 
+      metrics_all(metricPreparedFrameIPIP(ensemble.fold, data.test)))
         cat("------------------------------------\n")
 
 
@@ -1240,16 +1261,19 @@ cat("######## Training sequential mixed IPIP ######## \n")
 mean_metrics.IPIPseqMixed <- append(mean_metrics.IPIPseqMixed, apply(matrix(unlist(metrics.final.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
 matrix_mean.IPIPseqMixed <- matrix(mean_metrics.IPIPseqMixed, nrow = 1, ncol = number_metrics, byrow = TRUE)
 matrix_mean.IPIPseqMixed <- cbind(matrix_mean.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
-
-
-
-
-
 colnames(matrix_mean.IPIPseqMixed) <- metric_names
+
+mean_metrics.test.IPIPseqMixed <- append(mean_metrics.test.IPIPseqMixed, apply(matrix(unlist(metrics.final.test.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
+matrix_mean.test.IPIPseqMixed <- matrix(mean_metrics.test.IPIPseqMixed, nrow = 1, ncol = number_metrics, byrow = TRUE)
+matrix_mean.test.IPIPseqMixed <- cbind(matrix_mean.test.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
+colnames(matrix_mean.test.IPIPseqMixed) <- metric_names
 
 
 cat("IPIP SEQUENTIAL MIXED\n")
+cat("On train:\n")
 print(matrix_mean.IPIPseqMixed)
+cat("On test:\n")
+print(matrix_mean.test.IPIPseqMixed)
 cat("\n")
 
 
@@ -1292,14 +1316,8 @@ print_with_asterisks <- function(matrix, best_values, elem) {
 }
 
 save(matrix_mean.IPIPrepeated, matrix_mean.IPIPseqMixed, matrix_mean.IPIPexhaustRepeat,
-     matrix_mean.IPIPexhaustMixed, matrix_mean.seed, matrix_mean.seed_under, matrix_mean.SMOTE,
+     matrix_mean.IPIPexhaustMixed, matrix_mean.seed, matrix_mean.seed_under, matrix_mean.SMOTE,matrix_mean.test.IPIPrepeated, matrix_mean.test.IPIPseqMixed, matrix_mean.test.IPIPexhaustRepeat,matrix_mean.test.IPIPexhaustMixed, matrix_mean.test.seed, matrix_mean.test.seed_under, matrix_mean.test.SMOTE,
      file = "./Outputs/saved_matrices.RData")
-
-
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
 
 get_better_data <- function(matrix){
   best_data <- list()
@@ -1314,6 +1332,10 @@ get_better_data <- function(matrix){
   return(best_data)
 }
 
+
+## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on train ALL\n")
 
 best_values <- sapply( list(
   matrix_mean.IPIPrepeated,
@@ -1348,6 +1370,44 @@ print_with_asterisks(matrix_mean.SMOTE, best_values, 7)
 
 
 ## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on test ALL\n")
+
+best_values <- sapply( list(
+  matrix_mean.test.IPIPrepeated,
+  matrix_mean.test.IPIPseqMixed,
+  matrix_mean.test.IPIPexhaustRepeat,
+  matrix_mean.test.IPIPexhaustMixed,
+  matrix_mean.test.seed,
+  matrix_mean.test.seed_under,
+  matrix_mean.test.SMOTE
+), get_better_data)
+
+cat("IPIP SEQUENTIAL REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPrepeated,best_values,1)
+
+cat("IPIP SEQUENTIAL MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPseqMixed,best_values,2)
+
+cat("IPIP EXHAUST REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustRepeat, best_values, 3)
+
+cat("IPIP EXHAUST MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustMixed, best_values, 4)
+
+cat("SEED\n")
+print_with_asterisks(matrix_mean.test.seed, best_values, 5)
+
+cat("SEED UNDERSAMPLED\n")
+print_with_asterisks(matrix_mean.test.seed_under, best_values, 6)
+
+cat("SMOTE\n")
+print_with_asterisks(matrix_mean.test.SMOTE, best_values, 7)
+
+
+## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on train ONLY IPIP\n")
 
 best_values <- sapply( list(
   matrix_mean.IPIPrepeated,
@@ -1368,4 +1428,28 @@ print_with_asterisks(matrix_mean.IPIPexhaustRepeat, best_values, 3)
 cat("IPIP EXHAUST MIXED\n")
 print_with_asterisks(matrix_mean.IPIPexhaustMixed, best_values, 4)
 
+
+
+## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+cat("----------------------------------------------\n")
+cat("Comparing on test ONLY IPIP\n")
+
+best_values <- sapply( list(
+  matrix_mean.test.IPIPrepeated,
+  matrix_mean.test.IPIPseqMixed,
+  matrix_mean.test.IPIPexhaustRepeat,
+  matrix_mean.test.IPIPexhaustMixed
+), get_better_data)
+
+cat("IPIP SEQUENTIAL REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPrepeated,best_values,1)
+
+cat("IPIP SEQUENTIAL MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPseqMixed,best_values,2)
+
+cat("IPIP EXHAUST REPEAT\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustRepeat, best_values, 3)
+
+cat("IPIP EXHAUST MIXED\n")
+print_with_asterisks(matrix_mean.test.IPIPexhaustMixed, best_values, 4)
 

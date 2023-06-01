@@ -34,9 +34,16 @@ First of all we obtain the needed data and do the preprocessing to the
 necessary elements as well as set up the output variable, and train/test differences.
 
 ```{r}
-data <- read.csv("../Datasets/data_tfg.csv")
-ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
-OUTPUT_VAR = "SITUACION"
+data <- read.csv("../Datasets/adult.csv")
+
+ind.cualit <- c(which(names(data) == "workclass"),which(names(data)=="education"),which(names(data)=="income"),which(names(data)=="marital.status"):which(names(data)=="gender"),which(names(data)=="native.country"))
+OUTPUT_VAR = "income"
+
+data[[OUTPUT_VAR]] = factor(data[[OUTPUT_VAR]], levels = c("<=50K", ">50K"), labels = c("Low", "High"))
+
+#For covid dataset
+#ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
+#OUTPUT_VAR = "SITUACION"
 
 
 # For correlation plot of some characteristics

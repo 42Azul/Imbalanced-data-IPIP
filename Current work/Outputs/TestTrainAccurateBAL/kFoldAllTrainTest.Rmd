@@ -1,4 +1,13 @@
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
+title: "IPIP Examples and different configurations"
+author: "Fernando de la Gandara Fernandez"
+editor_options:
+  markdown:
+    wrap: 72
+output: pdf_document
+---
+
+```{r}
 library(foreach)
 library(doParallel)
 library(DataExplorer)
@@ -19,9 +28,12 @@ sink("./Outputs/CurrentOutput.txt")
 
 #Set random seed
 set.seed(42)
+```
 
+First of all we obtain the needed data and do the preprocessing to the
+necessary elements as well as set up the output variable, and train/test differences.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 data <- read.csv("../Datasets/data_tfg.csv")
 ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
 OUTPUT_VAR = "SITUACION"
@@ -44,23 +56,27 @@ OUTPUT_VAR = "SITUACION"
   
 
  }
+```
 
+We look at imbalanced data in a table
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 barplot(prop.table(table(data[[OUTPUT_VAR]])),
         col = rainbow(2),
         ylim = c(0, 1.01),
         main = "Class Distribution")
+```
+We now make the train/test stratified split
 
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 train.index <- createDataPartition(data[[OUTPUT_VAR]], p = 0.85, list = FALSE)
 data.train <- data[ train.index,]
 data.test  <- data[-train.index,]
 
+```
+And the number of elements per class in the train set
 
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 
 output_lev <- levels(data.train[[OUTPUT_VAR]])
 
@@ -80,9 +96,17 @@ if (lev_nrow[1] < lev_nrow[2]){
 print(sprintf("%s : %d", OUTPUT_MIN, nmin))
 print(sprintf("%s : %d", OUTPUT_MAJ, nmaj))
 
+```
 
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+We define the metrics to be measured, amongst which the kappa factor or balanced accuracy will be
+significants value to measure imbalanced data and will be the
+differential measure during the training. One of them will be used in
+the training and the other for measuring purposes
+
+```{r}
 
 
 kappa_mine <- function(TP, TN, FP, FN, lObs) {
@@ -151,27 +175,56 @@ metrics_all <- function(data, lev = levels(as.factor(data$obs)), model = NULL){
 number_metrics = 12
 #We add time as a measure we will compute later
 metric_names <- c("ACCURACY", "SENS", "SPEC", "PPV", "NPV", "KAPPA", "BAL_ACC", "F1", "AUC", "PR", "MCC", "GEOM", "TIME")
+```
 
+Let us remember the different parameters of our model:
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-   np: Elements of the minoritary class in each partition
+-   p: Number of partitions to be made
+-   b: Maximum number of models in each ensemble of each partition
+-   mt: Function which returns how many trials we must make in the
+    greedy sequencial approach
+
+In order to stablish these parameters we will create a function for each
+one of them:
+
+First of all the one related to the "np" parameter which in our case
+will be reduced to a function which gets the 75% of the minoritary
+class.
+
+```{r}
 calculate_np <- function( nmin, nmaj,  elbow_prob=0.75) 
 {
   np <- round(nmin*elbow_prob)
   return(np)
 }
 
+```
 
+Now we move on to the number of partitions which, in our case, is
+obtained using the formula studied in the original work, based on
+applying the logarithmic division of values less than 1 (both negative)
+to obtain a ratio between the established alpha and the number of
+elements chosen per partition.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 calculate_p <- function( np, prob_codo=0.75, alpha_p= .01) 
 {
   p <- ceiling(log(alpha_p)/(log(1-1/np)*np))
   return(p)
 }
 
+```
 
+Subsequently, we approach the parameter b, which is responsible for
+determining how many models at most there will be in each ensemble of
+each partition made. To do this, we will take a similar approach to that
+of the number of partitions, except that we will use a relationship
+between nmin and np, and not just the number of minority elements per
+partition (p). This way, b is always above the number of partitions
+made.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 
   
 calculate_b <- function(np, nmin, nmaj, elbow_prob=0.75, alpha_b= .01) 
@@ -183,18 +236,28 @@ calculate_b <- function(np, nmin, nmaj, elbow_prob=0.75, alpha_b= .01)
 
 
 
+```
 
+And lastly, we will define the "mt" function, which calculates how many
+tries at most should be made in order to enlarge each model ensemble in
+the sequencial approach. It can be shown that the "mt" number of tries
+will always be smaller than the "b" which are the maximum models for
+each ensemble.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 
 
 
 mt <- function(b, n) { ceiling((b-n) / 3) }
 
 
+```
 
+This is an auxiliary function that just returns a continuous apply of a
+given configuration "b" times. Useful for multiple seed algorithm
+trainings (i.e five GBM models)
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 get_function_vector <- function(b,function_training){
   function_vector <- c() 
   for(i in 1:b){
@@ -205,9 +268,27 @@ get_function_vector <- function(b,function_training){
   return(function_vector)
 }
 
+```
 
+Now let us set up some seed algorithms for the model. This function list
+will be made by four well known ones:
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-   Ranger
+-   Logistic regression
+-   SVM
+-   GBM
+
+The idea is to train them in different approaches and see which IPIP
+variant works better, so we will make a k-fold of each of the next
+approaches and see which of them seem to be a better idea.
+
+-   Each seed algorithm alone (without IPIP)
+-   Sequential IPIP with many instances of the same seed algorithm
+-   Exhaustive IPIP with different seed algorithms (one of each at
+    least)
+-   Exhaustive IPIP but only the best ensemble
+
+```{r}
 
 
 seed_algorithms <- c(
@@ -358,9 +439,14 @@ function(df.train, metrics, OUTPUT, metric_optimize) {
 
 alg_names <-c("RANGER", "RLOG", "SVM", "GBM")
 
+```
 
+Now that we have the configurations, we proceed to obtain a separation
+into balanced subsets. To do this, I obtain a series of folds with the
+created function 'imbalancedFold' that allow applying that division so
+that each subset of the k-fold has the imbalanced subsets distributed
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 imbalancedFold <- function(data, n_folds, target, minority_class) {
   n_samples <- nrow(data)
   n_majority_total <- n_samples - sum(data[[target]] == minority_class)
@@ -400,15 +486,34 @@ imbalancedFold <- function(data, n_folds, target, minority_class) {
   return(fold_indices)
 }
 
+```
 
+In this case we will make a k-fold of k=5
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 
 folds <-imbalancedFold(data.train, 5,OUTPUT_VAR, OUTPUT_MIN)
 
+```
 
+Now the prediction function is missing. In our case it consists of two
+functions.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+The first one is applied to the ensemble of models of a specific
+partition. On each established model, the specific prediction (predict
+method of the same) is made. Then a table is made that assigns to each
+example the proportion of models that have predicted in that way. If
+more than q (75% by default, that is, at least three-quarters of the
+models predict that it is cured) have been predicted, it is established
+that it is predicted as OUTPUT_MAJ and if not, it will be deceased.
+
+Finally, the same thing is done but instead of using the predict
+function of each model, the given prediction function on each ensemble
+is used, the proportion is made on the ensemble sets and if the
+prediction proportion value is \>50%, it is assumed as OUTPUT_MAJ being
+if not OUTPUT_MIN.
+
+```{r}
 
 default_q = 0.75
 
@@ -456,9 +561,12 @@ prediction.predicted <- function(predicted, q = default_q) {
 }
 
 
+```
+ 
+ 
+ Now let us add some functions which calculate the prediction probability needed for some metrics
 
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 prediction.prob <- function(ensemble, x, q = default_q){
   pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
   for(model in ensemble) pred <- cbind(pred, predict(model,x,type="prob")[[OUTPUT_MAJ]])
@@ -478,9 +586,35 @@ prediction.final.prob <- function(ensemble, x, q =default_q){
 prop.maj = 0.55
 metric_optimize = 'BAL_ACC'
 
+```
 
+Now we define the function that performs the training. It follows the
+ideas explained in the work. The process consists of creating p
+partitions where we ensure in each one a quantity of np elements of the
+minority class, and then training multiple models on these elements.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+To do this, we have a list called "dfs" that contains the indices of
+each well-balanced partition. We will perform iterative training on each
+of these partitions:
+
+-   First, the model is trained on the first function of the function
+    vector, and its metric results are stored.
+
+-   Then, we try to expand the model until the "mt" attempt function
+    limits it. To expand the model, it is trained with the next training
+    function given by the parameter of functions, and the value obtained
+    with that new function is compared with the value obtained without
+    it. If an improvement is achieved, it is incorporated into the
+    ensemble; otherwise, we move on to a new attempt.
+
+-   Once the number of attempts for the current ensemble is complete, it
+    is considered finished and is incorporated as the final model given
+    for the partition.
+
+We will continue this process for the p partitions, and we will have the
+model as our final response.
+
+```{r}
 train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, 
                         configuration, prediction, metrics, b, np,  p, mt, TRAIN_METRIC = "KAPPA", SELECT_METRIC = "SENS"){
   
@@ -565,9 +699,12 @@ return(E);
 }
 
 
+```
 
+Now we have another possible approach of IPIP based on an exhaustive
+approach of the models.
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 powerset = function(s, test.set){
     len = length(s)
     l = c()
@@ -679,9 +816,10 @@ return(E);
 }
 
 
+```
 
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 metricPreparedFrame <- function(model, setToTest)
       data.frame(
           obs = setToTest[[OUTPUT_VAR]],
@@ -690,9 +828,21 @@ metricPreparedFrame <- function(model, setToTest)
           obs.prob = as.numeric(ifelse(setToTest[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
         )
 
+```
 
 
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Now we move on to performing the training for each configuration
+established in the configuration list. To do this, we iterate through
+each configuration and apply k-fold cross-validation. For each fold, we
+provide a vector function associated with the maximum number of models b
+for an ensemble. This approach allows for the creation of vectors of
+variable functions
+
+
+First we will make a naive approach over the base data using the seed algorithms
+
+```{r warning=FALSE, cache=TRUE}
 mean_metrics.seed <- list()
 mean_metrics.test.seed <- list()
 mean_time.seed <- list()
@@ -765,9 +915,12 @@ cat("On test\n")
 print(matrix_mean.test.seed)
 cat("\n")
 
+```
 
 
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
+Next we will train seed algorithms performing with the direct data but undersampled in the same way our IPIP method will be.
+
+```{r warning=FALSE, cache=TRUE}
 mean_metrics.seed_under <- list()
 mean_metrics.test.seed_under <- list()
 mean_time.seed_under <- list()
@@ -857,9 +1010,12 @@ cat("On test\n")
 print(matrix_mean.test.seed_under)
 cat("\n")
 
+```
 
 
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
+After that approach we will use SMOTE for a balance in the same proportion as we will balance IPIP
+
+```{r warning=FALSE, cache=TRUE}
 mean_metrics.SMOTE <- list()
 mean_metrics.test.SMOTE <- list()
 mean_time.SMOTE <- list()
@@ -963,9 +1119,12 @@ cat("On test\n")
 print(matrix_mean.test.SMOTE)
 cat("\n")
 
+```
 
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Before IPIP models let us set up a simplified function to better work them
+
+```{r}
 metricPreparedFrameIPIP <- function(ensemble, setToTest)
       data.frame(
           obs = setToTest[[OUTPUT_VAR]],
@@ -974,9 +1133,14 @@ metricPreparedFrameIPIP <- function(ensemble, setToTest)
           obs.prob = as.numeric(ifelse(setToTest[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
         )
 
+```
 
 
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Now we will perform the training in the mixed algorithm exhaustive
+approach of IPIP
+
+```{r warning=FALSE, cache=TRUE}
 mean_metrics.IPIPexhaustMixed <- list()
 mean_metrics.test.IPIPexhaustMixed <- list()
 mean_time.IPIPexhaustMixed = 0
@@ -1050,9 +1214,12 @@ cat("On test\n")
 print(matrix_mean.test.IPIPexhaustMixed)
 cat("\n")
 
+```
 
+We then try the exhaustive method applied to a group of algorithms of
+the same kind
 
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r warning=FALSE, cache=TRUE}
 mean_metrics.IPIPexhaustRepeat <- list()
 mean_metrics.test.IPIPexhaustRepeat <- list()
 mean_time.IPIPexhaustRepeat <- list()
@@ -1129,11 +1296,15 @@ cat("On test\n")
 print(matrix_mean.test.IPIPexhaustRepeat)
 cat("\n")
 
+```
 
+Let us finally execute the code on the sequential greedy original
+approach of IPIP
 
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r warning=FALSE, cache=TRUE}
 
 mean_metrics.IPIPrepeated <- list()
+mean_metrics.test.IPIPrepeated <- list()
 mean_time.IPIPrepeated <- list()
 
 cat("######## Training sequential repeat IPIP ######## \n")
@@ -1181,6 +1352,7 @@ for(alg in 1:length(seed_algorithms)){
   }
 
   mean_metrics.IPIPrepeated <- append(mean_metrics.IPIPrepeated, apply(matrix(unlist(metrics.final.IPIPrepeated), ncol= number_metrics, byrow=T), 2, mean))
+  mean_metrics.test.IPIPrepeated <- append(mean_metrics.test.IPIPrepeated, apply(matrix(unlist(metrics.test.IPIPrepeated), ncol= number_metrics, byrow=T), 2, mean))
 
 }
 
@@ -1191,7 +1363,7 @@ colnames(matrix_mean.IPIPrepeated) <- metric_names
 rownames(matrix_mean.IPIPrepeated) <- alg_names
 
 matrix_mean.test.IPIPrepeated <- matrix(mean_metrics.test.IPIPrepeated, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.test.IPIPrepeated <- cbind(matrix_mean.test.IPIPrepeated, lapply(mean_time.test.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
+matrix_mean.test.IPIPrepeated <- cbind(matrix_mean.test.IPIPrepeated, lapply(mean_time.IPIPrepeated, function(x){as.numeric(x, units="secs")/length(folds)}))
 colnames(matrix_mean.test.IPIPrepeated) <- metric_names
 rownames(matrix_mean.test.IPIPrepeated) <- alg_names
 
@@ -1204,9 +1376,11 @@ print(matrix_mean.test.IPIPrepeated)
 cat("\n")
 
 
+```
 
+And, last, we will execute the sequential approach but to a mixed version of algorithms
 
-## ---- warning=FALSE, cache = TRUE----------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r, warning=FALSE, cache = TRUE}
 mean_metrics.IPIPseqMixed<- list()
 mean_metrics.test.IPIPseqMixed<- list()
 mean_time.IPIPseqMixed = 0 
@@ -1263,7 +1437,7 @@ matrix_mean.IPIPseqMixed <- matrix(mean_metrics.IPIPseqMixed, nrow = 1, ncol = n
 matrix_mean.IPIPseqMixed <- cbind(matrix_mean.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
 colnames(matrix_mean.IPIPseqMixed) <- metric_names
 
-mean_metrics.test.IPIPseqMixed <- append(mean_metrics.test.IPIPseqMixed, apply(matrix(unlist(metrics.final.test.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
+mean_metrics.test.IPIPseqMixed <- append(mean_metrics.test.IPIPseqMixed, apply(matrix(unlist(metrics.test.IPIPseqMixed), ncol= number_metrics, byrow=T), 2, mean))
 matrix_mean.test.IPIPseqMixed <- matrix(mean_metrics.test.IPIPseqMixed, nrow = 1, ncol = number_metrics, byrow = TRUE)
 matrix_mean.test.IPIPseqMixed <- cbind(matrix_mean.test.IPIPseqMixed,lapply(mean_time.IPIPseqMixed, function(x){as.numeric(x, units="secs")/length(folds)}))
 colnames(matrix_mean.test.IPIPseqMixed) <- metric_names
@@ -1275,9 +1449,12 @@ print(matrix_mean.IPIPseqMixed)
 cat("On test:\n")
 print(matrix_mean.test.IPIPseqMixed)
 cat("\n")
+```
 
+After executing the code, we will show the comparison of relevant
+metrics using this function 
 
-## ---- results= 'hold'----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r, results= 'hold'}
 
 print_with_asterisks <- function(matrix, best_values, elem) {
     num_spaces = 11
@@ -1317,7 +1494,7 @@ print_with_asterisks <- function(matrix, best_values, elem) {
 
 save(matrix_mean.IPIPrepeated, matrix_mean.IPIPseqMixed, matrix_mean.IPIPexhaustRepeat,
      matrix_mean.IPIPexhaustMixed, matrix_mean.seed, matrix_mean.seed_under, matrix_mean.SMOTE,matrix_mean.test.IPIPrepeated, matrix_mean.test.IPIPseqMixed, matrix_mean.test.IPIPexhaustRepeat,matrix_mean.test.IPIPexhaustMixed, matrix_mean.test.seed, matrix_mean.test.seed_under, matrix_mean.test.SMOTE,
-     file = "./Outputs/saved_matrices.RData")
+     file = "./saved_matrices.RData")
 
 get_better_data <- function(matrix){
   best_data <- list()
@@ -1331,9 +1508,11 @@ get_better_data <- function(matrix){
   }
   return(best_data)
 }
+```
 
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Now we get the max values and print the asterisks if it is the max of its matrix and double ** if it is the max of all matrix in that category
+```{r}
 cat("----------------------------------------------\n")
 cat("Comparing on train ALL\n")
 
@@ -1367,9 +1546,11 @@ print_with_asterisks(matrix_mean.seed_under, best_values, 6)
 
 cat("SMOTE\n")
 print_with_asterisks(matrix_mean.SMOTE, best_values, 7)
+```
 
+And comparing into the small subset of test
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 cat("----------------------------------------------\n")
 cat("Comparing on test ALL\n")
 
@@ -1403,9 +1584,11 @@ print_with_asterisks(matrix_mean.test.seed_under, best_values, 6)
 
 cat("SMOTE\n")
 print_with_asterisks(matrix_mean.test.SMOTE, best_values, 7)
+```
 
+And now only insights comparing different IPIP approaches
 
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 cat("----------------------------------------------\n")
 cat("Comparing on train ONLY IPIP\n")
 
@@ -1428,9 +1611,9 @@ print_with_asterisks(matrix_mean.IPIPexhaustRepeat, best_values, 3)
 cat("IPIP EXHAUST MIXED\n")
 print_with_asterisks(matrix_mean.IPIPexhaustMixed, best_values, 4)
 
+```
 
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```{r}
 cat("----------------------------------------------\n")
 cat("Comparing on test ONLY IPIP\n")
 
@@ -1452,4 +1635,4 @@ print_with_asterisks(matrix_mean.test.IPIPexhaustRepeat, best_values, 3)
 
 cat("IPIP EXHAUST MIXED\n")
 print_with_asterisks(matrix_mean.test.IPIPexhaustMixed, best_values, 4)
-
+```
