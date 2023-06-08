@@ -226,7 +226,7 @@ to obtain a ratio between the established alpha and the number of
 elements chosen per partition.
 
 ```{r}
-calculate_p <- function( np, elbow_prob=0.75, alpha_p= .01) 
+calculate_p <- function( np, prob_codo=0.75, alpha_p= .01) 
 {
   p <- ceiling(log(alpha_p)/(log(1-1/np)*np))
   return(p)
@@ -644,7 +644,7 @@ train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set,
   majSubSize <-  round(np*prop.maj/(1-prop.maj))
   minSubSize <-  np
 
-  #Includes in each position the elements of each partition from 1 to p
+  #Incluye en cada posicion los valores de los elementos de dicha particion, de 1 a p
   dfs <- list()
   
   minoritary <- subset(train.set, train.set[[OUTPUT]] == min_str)
