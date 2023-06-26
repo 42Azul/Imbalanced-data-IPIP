@@ -1,13 +1,14 @@
+default_q = 0.7
 
 #Function to calculate number of positive samples, np
-calculate_np <- function( nmin, nmaj,  elbow_prob=0.75) 
+calculate_np <- function( nmin, nmaj,  percentage_per_sample=0.75) 
 {
-  np <- round(nmin*elbow_prob)
+  np <- round(nmin*percentage_per_sample)
   return(np)
 }
 
 #Function to calculate number of partitions, p
-calculate_p <- function( np, prob_codo=0.75, alpha_p= .01) 
+calculate_p <- function( np, alpha_p= .01) 
 {
   p <- ceiling(log(alpha_p)/(log(1-1/np)*np))
   return(p)
@@ -15,7 +16,7 @@ calculate_p <- function( np, prob_codo=0.75, alpha_p= .01)
 
 
 #Function to calculate maximum ensemble size, b
-calculate_b <- function(np, nmin, nmaj, elbow_prob=0.75, alpha_b= .01) 
+calculate_b <- function(np, nmin, nmaj, alpha_b= .01) 
 {
   
   b <- ceiling(log(alpha_b)/(log(1-1/nmin)*np))
@@ -54,6 +55,45 @@ prediction.predicted <- function(predicted, q = default_q) {
   nElems <- length(predicted$ensemble) 
   pred <- ifelse(predicted$model_count  < q*nElems, OUTPUT_MIN, OUTPUT_MAJ)
   return(pred)
+}
+
+#Functions used to predict a final trained model
+
+#Function to predict over a single ensemble
+prediction <- function(conj.model, x, q = default_q){ 
+  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
+  for(model in conj.model) pred <- cbind(pred, predict(model,x))
+  nElems = ncol(pred)
+  nElems <- ncol(pred)
+  counts <- rowSums(pred == OUTPUT_MAJ)
+  pred <- counts
+  ifelse(is.na(pred) | pred<q*nElems, OUTPUT_MIN, OUTPUT_MAJ)
+}
+
+#Function to predict into a fold of many ensembles
+prediction.fold <- function(ensemble, x, q = default_q){
+  pred <- as.data.frame(lapply(ensemble, function(e) prediction(e,x)))
+  nElems = ncol(pred)
+  nElems <- ncol(pred)
+  counts <- rowSums(pred == OUTPUT_MAJ)
+  pred <- counts
+  ifelse(is.na(pred) | pred<q*nElems, OUTPUT_MIN, OUTPUT_MAJ)
+}
+
+
+#Functions to calculate the probability of the predictions
+prediction.prob <- function(ensemble, x, q = default_q){
+  pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
+  for(model in ensemble) pred <- cbind(pred, predict(model,x,type="prob")[[OUTPUT_MAJ]])
+  pred<- rowSums(pred)
+  pred
+}
+
+prediction.fold.prob <- function(ensemble, x, q =default_q){
+  #Place all predictions for a sample in each row of a data set
+  pred <- as.data.frame(lapply(ensemble, function(e) prediction.prob(e,x)))
+  pred <- rowSums(pred)/sum(unlist(lapply(ensemble,length)))
+  pred
 }
 
 
@@ -253,6 +293,20 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
   return(E);
 }
 
+
+#train set:       Set from which train the inside ensembles
+#val.set:         Validation set for ensemble selection
+#OUTPUT_VAR:      Variable where is our objective located
+#OUTPUT_MIN:      Value of the minoritary class in the output characteristic
+#OUTPUT_MAJ:      Value of the majoritary class in the output characteristic
+#conf:            Vector of algorithms to be executed calling the metric_optimize metric and the train set
+#metrics:         Metric function which calculates, given a prediction in the form of data[,obs] data[,pred]
+#metric_optimize: Metric will be used to train the model
+#prop.maj:        Proportion of the majoritary class
+#exhaustive:      Boolean variable which checks if the training is made in sequential or exhaustive mode
+#metric_select:   Second metric stablished in order to check if one ensemble is better than other. They are equal by default.
+
+#Returns -> List of trained models. Prediction over those models is to be made with the prediction.fold functions.
 
 
 trainIPIP <- function(train.set, val.set, OUTPUT_VAR, OUTPUT_MIN, OUTPUT_MAJ, conf, metrics, metric_optimize, prop.maj = 0.55, exhaustive = FALSE,  alpha = .01, metric_select = metric_optimize){

@@ -34,7 +34,7 @@ set.seed(42)
 
 #For adult dataset
 
-data = read.csv("../Datasets/adult.csv", nrows=2000)
+data = read.csv("../Datasets/adult.csv",nrows = 10000)
  ind.cualit <- c(which(names(data) == "workclass"),which(names(data)=="education"),which(names(data)=="income"),which(names(data)=="marital.status"):which(names(data)=="gender"),which(names(data)=="native.country"))
  OUTPUT_VAR = "income"
  data = na.omit(data)
@@ -239,6 +239,8 @@ seed_algorithms <- c(
     tC <- trainControl(
       summaryFunction = metrics,
       allowParallel = TRUE,
+      method = "cv",
+      number = 5,
       classProbs = TRUE
     )
     
@@ -314,7 +316,10 @@ function(df.train, metrics, OUTPUT, metric_optimize) {
       classProbs = TRUE
     )
     
-    method <- "svmlinear"
+    method <- "svmLinear"
+    maximize <- T
+
+    
         
         
     cl <- makeCluster(NUM_CORES, type="FORK")
@@ -327,7 +332,7 @@ function(df.train, metrics, OUTPUT, metric_optimize) {
       data = df.train,
       method = method,
       metric = metric_optimize,
-      maximize = T,
+      maximize = maximize,
       trControl = tC
     )
     
@@ -697,297 +702,6 @@ train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set
 return(E);
 }
 
-
-
-
-## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-metricPreparedFrame <- function(model, setToTest)
-      data.frame(
-          obs = setToTest[[OUTPUT_VAR]],
-          pred = predict(model,setToTest[,names(setToTest) != OUTPUT_VAR]),
-          prob= prediction.fold.prob(list(list(model)), setToTest[,names(setToTest) != OUTPUT_VAR]),
-          obs.prob = as.numeric(ifelse(setToTest[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
-        )
-
-
-
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
-mean_metrics.seed <- list()
-mean_metrics.test.seed <- list()
-mean_time.seed <- list()
-
-
-cat("######## Training seed algorithms naive approach ######## \n")
-for(alg in 1:length(seed_algorithms)){
-    mean_time.seed[[alg]] = 0
-    
-    metrics.final.seed <- list()
-    metrics.test.seed <- list()
-    cat(sprintf("Seed algorithm: %d\n", alg))
-    for (i in 1:length(folds)) {
-        cat(sprintf("Fold %d out of %d\n", i, length(folds)))
-        cat("------------------------------------\n")
-        
-    
-        
-        
-        train.set <- data.train[unlist(folds[i]),]
-        test.set <- data.train[-unlist(folds[i]),]
-    
-        
-        start_time <- Sys.time()
-        model_seed <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR,metric_optimize)
-        end_time <- Sys.time()
-        mean_time.seed[[alg]]= mean_time.seed[[alg]] +
-        end_time - start_time
-        print(end_time - start_time)
-        
-        
-        metrics.final.seed <- append( metrics.final.seed, metrics_all(metricPreparedFrame(model_seed, test.set)))
-        metrics.test.seed <- append( metrics.test.seed, metrics_all(metricPreparedFrame(model_seed, data.test)))
-        
-        cat("------------------------------------\n")
-    }
-    
-  mean_metrics.seed <- append(mean_metrics.seed, 
-        apply(matrix(unlist(metrics.final.seed), ncol= number_metrics, byrow=T), 2, mean))
-  
-  mean_metrics.test.seed <- append(mean_metrics.test.seed, 
-        apply(matrix(unlist(metrics.test.seed), ncol= number_metrics, byrow=T), 2, mean))
-}
-
-
-
-
-
-matrix_mean.seed <- matrix(mean_metrics.seed, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.seed<- cbind(matrix_mean.seed, lapply(mean_time.seed, function(x){as.numeric(x, units="secs")}/length(folds)))
-colnames(matrix_mean.seed) <-metric_names
-rownames(matrix_mean.seed) <- alg_names
-
-
-matrix_mean.test.seed <- matrix(mean_metrics.test.seed, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.test.seed <- cbind(matrix_mean.test.seed, lapply(mean_time.seed, function(x){as.numeric(x, units="secs")}/length(folds)))
-colnames(matrix_mean.test.seed) <-metric_names
-rownames(matrix_mean.test.seed) <- alg_names
-
-
-
-
-
-
-cat("SEED ALGORITHM NAIVE \n")
-cat("On train\n")
-print(matrix_mean.seed)
-cat("\n")
-cat("On test\n")
-print(matrix_mean.test.seed)
-cat("\n")
-
-
-
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
-mean_metrics.seed_under <- list()
-mean_metrics.test.seed_under <- list()
-mean_time.seed_under <- list()
-
-
-train.seeds_under <- list()
-
-
-for(i in 1:length(folds)){
-  
-    train.set <- data.train[unlist(folds[i]),]
-    minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
-    majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
-    
-    nmin = nrow(minoritary)
-    nmaj = nrow(majoritary)
-    
-    id.majoritary <- sample(x= 1: nmaj, size = nmin/(1/prop.maj -1 )) #Indexes for majoritary class for each subset
-    train.seeds_under[[i]] <- rbind(minoritary,majoritary[id.majoritary,])
-  }
-
-
-
-cat("######## Training seed algorithms undersampled ######## \n")
-for(alg in 1:length(seed_algorithms)){
-    mean_time.seed_under[[alg]] = 0
-    
-    cat(sprintf("Seed algorithm: %d\n", alg))
-        
-    metrics.final.seed_under <- list()
-    metrics.test.seed_under <- list()
-    for (i in 1:length(folds)) {
-
-        cat(sprintf("Fold %d out of %d\n", i, length(folds)))
-        cat("------------------------------------\n")
-        
-
-        
-        train.set <- train.seeds_under[[i]]
-        test.set <- data.train[-unlist(folds[i]),]
-    
-        
-        start_time <- Sys.time()
-        model_seed_under <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR, metric_optimize)
-        end_time <- Sys.time()
-        mean_time.seed_under[[alg]]= mean_time.seed_under[[alg]] +
-        end_time - start_time
-        print(end_time - start_time)
-        
-        metrics.final.seed_under <- append( metrics.final.seed_under, metrics_all(metricPreparedFrame(model_seed_under, test.set)))
-        metrics.test.seed_under <- append( metrics.test.seed_under, metrics_all(metricPreparedFrame(model_seed_under, data.test)))
-        
-        cat("------------------------------------\n")
-    }
-  
-  mean_metrics.seed_under <- append(mean_metrics.seed_under, 
-        apply(matrix(unlist(metrics.final.seed_under), ncol= number_metrics, byrow=T), 2, mean))
-  
-    
-  mean_metrics.test.seed_under <- append(mean_metrics.test.seed_under, 
-        apply(matrix(unlist(metrics.test.seed_under), ncol= number_metrics, byrow=T), 2, mean))
-  
-  
-}
-
-
-
-
-
-matrix_mean.seed_under <- matrix(mean_metrics.seed_under, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.seed_under<- cbind(matrix_mean.seed_under, lapply(mean_time.seed_under, function(x){as.numeric(x, units="secs")/length(folds)}))
-colnames(matrix_mean.seed_under) <-metric_names
-rownames(matrix_mean.seed_under) <- alg_names
-
-
-matrix_mean.test.seed_under <- matrix(mean_metrics.test.seed_under, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.test.seed_under <- cbind(matrix_mean.test.seed_under, lapply(mean_time.seed_under, function(x){as.numeric(x, units="secs")}/length(folds)))
-colnames(matrix_mean.test.seed_under) <-metric_names
-rownames(matrix_mean.test.seed_under) <- alg_names
-
-
-cat("SEED ALGORITHM UNDERSAMPLED \n")
-cat("On train\n")
-print(matrix_mean.seed_under)
-cat("\n")
-cat("On test\n")
-print(matrix_mean.test.seed_under)
-cat("\n")
-
-
-
-## ----warning=FALSE, cache=TRUE-------------------------------------------------------------------------------------------------------------------------------------------------------------
-mean_metrics.SMOTE <- list()
-mean_metrics.test.SMOTE <- list()
-mean_time.SMOTE <- list()
-
-
-train.SMOTE <- list()
-
-
-for(i in 1:length(folds)){
-    
-    train.set <- data.train[unlist(folds[i]),]
-    
-    minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
-    majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
-    
-    nmin = nrow(minoritary)
-    
-    # #We reduce tha maj class to its half
-    #nmaj = nrow(majoritary)/2
-    #prop.min = 1-prop.maj
-    #oversampling_perc = floor(100*(nmaj/((1/prop.min -1)*nmin) -1))
-    
-    prop.min = 1
-    nmin_new = nmin*prop.min
-    maj_class_perc = 100*((prop.maj/(1-prop.maj))*(1 + nmin/nmin_new))
-    train.set = SMOTE(as.formula(sprintf("%s ~.", OUTPUT_VAR)) , train.set , k=5, perc.over = prop.min*100, perc.under = maj_class_perc ) 
-  
-    barplot(prop.table(table(train.set[[OUTPUT_VAR]])),
-        col = rainbow(3),
-        ylim = c(0, 1.01),
-        main = "Class Distribution")
-    
-    minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
-    majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
-
-    train.SMOTE[[i]] <- rbind(minoritary,majoritary)
-  }
-
-
-
-cat("######## Training seed algorithms SMOTE ######## \n")
-for(alg in 1:length(seed_algorithms)){
-    mean_time.SMOTE[[alg]] = 0
-    
-    cat(sprintf("Seed algorithm: %d\n", alg))
-    
-    metrics.final.SMOTE <- list()
-    metrics.test.SMOTE <- list()
-    for (i in 1:length(folds)) {
-
-        cat(sprintf("Fold %d out of %d\n", i, length(folds)))
-        cat("------------------------------------\n")
-        
-    
-
-        
-        train.set <- train.SMOTE[[i]]
-        test.set <- data.train[-unlist(folds[i]),]
-    
-        
-        start_time <- Sys.time()
-        model_SMOTE <- seed_algorithms[[alg]](train.set, metrics, OUTPUT_VAR, metric_optimize)
-        end_time <- Sys.time()
-        mean_time.SMOTE[[alg]]= mean_time.SMOTE[[alg]] +
-        end_time - start_time
-        print(end_time - start_time)
-        
-     
-        
-                
-        metrics.final.SMOTE <- append( metrics.final.SMOTE, metrics_all(metricPreparedFrame(model_SMOTE,  test.set)))
-        metrics.test.SMOTE <- append( metrics.test.SMOTE, metrics_all(metricPreparedFrame(model_SMOTE, data.test)))
-        
-        cat("------------------------------------\n")
-    }
-  
-  mean_metrics.SMOTE <- append(mean_metrics.SMOTE, 
-      apply(matrix(unlist(metrics.final.SMOTE), ncol= number_metrics, byrow=T), 2, mean))
-  
-  mean_metrics.test.SMOTE <- append(mean_metrics.test.SMOTE, 
-       apply(matrix(unlist(metrics.test.SMOTE), ncol= number_metrics, byrow=T), 2, mean))
-}
-
-
-
-
-
-matrix_mean.SMOTE <- matrix(mean_metrics.SMOTE, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.SMOTE<- cbind(matrix_mean.SMOTE, lapply(mean_time.SMOTE, function(x){as.numeric(x, units="secs")/length(folds)}))
-
-
-colnames(matrix_mean.SMOTE) <-metric_names
-rownames(matrix_mean.SMOTE) <- alg_names
-
-
-matrix_mean.test.SMOTE <- matrix(mean_metrics.test.SMOTE, nrow = length(seed_algorithms), ncol = number_metrics, byrow = TRUE)
-matrix_mean.test.SMOTE <- cbind(matrix_mean.test.SMOTE, lapply(mean_time.SMOTE, function(x){as.numeric(x, units="secs")}/length(folds)))
-
-colnames(matrix_mean.test.SMOTE) <-metric_names
-rownames(matrix_mean.test.SMOTE) <- alg_names
-
-
-cat("SEED ALGORITHM SMOTE\n")
-cat("On train\n")
-print(matrix_mean.SMOTE)
-cat("\n")
-cat("On test\n")
-print(matrix_mean.test.SMOTE)
-cat("\n")
 
 
 

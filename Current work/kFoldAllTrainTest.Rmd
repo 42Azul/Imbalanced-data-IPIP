@@ -45,10 +45,12 @@ necessary elements as well as set up the output variable, and train/test differe
 # ind.cualit <- c(which(names(data) == "class"))
 
 #For adult dataset
-# ind.cualit <- c(which(names(data) == "workclass"),which(names(data)=="education"),which(names(data)=="income"),which(names(data)=="marital.status"):which(names(data)=="gender"),which(names(data)=="native.country"))
-# OUTPUT_VAR = "income"
-# data = na.omit(data)
-# data[[OUTPUT_VAR]] = factor(data[[OUTPUT_VAR]], levels = c("<=50K", ">50K"), labels = c("Low", "High"))
+
+# data = read.csv("../Datasets/adult.csv", nrows=2000)
+#  ind.cualit <- c(which(names(data) == "workclass"),which(names(data)=="education"),which(names(data)=="income"),which(names(data)=="marital.status"):which(names(data)=="gender"),which(names(data)=="native.country"))
+#  OUTPUT_VAR = "income"
+#  data = na.omit(data)
+#  data[[OUTPUT_VAR]] = factor(data[[OUTPUT_VAR]], levels = c("<=50K", ">50K"), labels = c("Low", "High"))
 
 #For covid dataset
 
@@ -318,8 +320,6 @@ seed_algorithms <- c(
     tC <- trainControl(
       summaryFunction = metrics,
       allowParallel = TRUE,
-      method = "cv",
-      number = 5,
       classProbs = TRUE
     )
     
@@ -373,8 +373,8 @@ seed_algorithms <- c(
       metric = metric_optimize,
       maximize = T,
       tuneGrid = expand.grid(
-        alpha = 0:1,
-      lambda = seq(0.0001, 1, length = 100)
+        alpha = seq(0, 1, by = 0.2),
+        lambda = seq(0.0001, 1, length = 100)
       ),
       trControl = tC
     )
@@ -396,9 +396,6 @@ function(df.train, metrics, OUTPUT, metric_optimize) {
     )
     
     method <- "svmLinear"
-    maximize <- T
-
-    
         
         
     cl <- makeCluster(NUM_CORES, type="FORK")
@@ -411,7 +408,7 @@ function(df.train, metrics, OUTPUT, metric_optimize) {
       data = df.train,
       method = method,
       metric = metric_optimize,
-      maximize = maximize,
+      maximize = T,
       trControl = tC
     )
     
@@ -535,23 +532,24 @@ if not OUTPUT_MIN.
 
 default_q = 0.75
 
+
 prediction <- function(conj.model, x, q = default_q){ 
   pred <- data.frame(matrix(nrow=nrow(x),ncol=0))
   for(model in conj.model) pred <- cbind(pred, predict(model,x))
   nElems = ncol(pred)
   nElems <- ncol(pred)
   counts <- rowSums(pred == OUTPUT_MAJ)
-  pred <- counts / nElems
-  ifelse(is.na(pred) | pred<q, OUTPUT_MIN, OUTPUT_MAJ)
+  pred <- counts
+  ifelse(is.na(pred) | pred<q*nElems, OUTPUT_MIN, OUTPUT_MAJ)
 }
 
-prediction.final <- function(ensemble, x, q = default_q){
+prediction.fold <- function(ensemble, x, q = default_q){
   pred <- as.data.frame(lapply(ensemble, function(e) prediction(e,x)))
   nElems = ncol(pred)
   nElems <- ncol(pred)
   counts <- rowSums(pred == OUTPUT_MAJ)
-  pred <- counts / nElems
-  ifelse(is.na(pred) | pred<q, OUTPUT_MIN, OUTPUT_MAJ)
+  pred <- counts
+  ifelse(is.na(pred) | pred<q*nElems, OUTPUT_MIN, OUTPUT_MAJ)
 }
 
 prediction.add <- function(old_ensemble, new_element, prediction_current = FALSE, test.set = FALSE){
@@ -592,7 +590,7 @@ prediction.prob <- function(ensemble, x, q = default_q){
   pred
 }
 
-prediction.final.prob <- function(ensemble, x, q =default_q){
+prediction.fold.prob <- function(ensemble, x, q =default_q){
    #Place all predictions for a sample in each row of a data set
   pred <- as.data.frame(lapply(ensemble, function(e) prediction.prob(e,x)))
   pred <- rowSums(pred)/sum(unlist(lapply(ensemble,length)))
@@ -602,7 +600,7 @@ prediction.final.prob <- function(ensemble, x, q =default_q){
 
 
 prop.maj = 0.55
-metric_optimize = 'KAPPA'
+metric_optimize = 'BAL_ACC'
 
 ```
 
@@ -634,7 +632,7 @@ model as our final response.
 
 ```{r}
 train_IPIP <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, 
-                        configuration, prediction, metrics, b, np,  p, mt, TRAIN_METRIC = "KAPPA", SELECT_METRIC = "KAPPA"){
+                        configuration, prediction, metrics, b, np,  p, mt, TRAIN_METRIC = "BAL_ACC", SELECT_METRIC = "BAL_ACC"){
   
   nmin = sum(train.set[[OUTPUT]] == min_str)
   nmaj = sum(train.set[[OUTPUT]] == maj_str)
@@ -749,7 +747,7 @@ powerset = function(s, test.set){
 }
 
 
-train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, configuration, prediction, metrics, np,  p, TRAIN_METRIC = "KAPPA", SELECT_METRIC = "KAPPA"){
+train_IPIP_exhaustive <- function( prop.maj, OUTPUT, min_str, maj_str, train.set, test.set, configuration, prediction, metrics, np,  p, TRAIN_METRIC = "BAL_ACC", SELECT_METRIC = "BAL_ACC"){
 
 
   
@@ -845,7 +843,7 @@ metricPreparedFrame <- function(model, setToTest)
       data.frame(
           obs = setToTest[[OUTPUT_VAR]],
           pred = predict(model,setToTest[,names(setToTest) != OUTPUT_VAR]),
-          prob= prediction.final.prob(list(list(model)), setToTest[,names(setToTest) != OUTPUT_VAR]),
+          prob= prediction.fold.prob(list(list(model)), setToTest[,names(setToTest) != OUTPUT_VAR]),
           obs.prob = as.numeric(ifelse(setToTest[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
         )
 
@@ -855,7 +853,7 @@ metricPreparedFrame <- function(model, setToTest)
 
 Now we move on to performing the training for each configuration
 established in the configuration list. To do this, we iterate through
-each configuration and apply k-fold cross-validation. For each fold, we
+each configuration and apply k-fold cross-validation. For eacold, we
 provide a vector function associated with the maximum number of models b
 for an ensemble. This approach allows for the creation of vectors of
 variable functions
@@ -1059,8 +1057,15 @@ for(i in 1:length(folds)){
     #prop.min = 1-prop.maj
     #oversampling_perc = floor(100*(nmaj/((1/prop.min -1)*nmin) -1))
     
-    maj_class_perc = 100/(1/prop.maj -1 )
-    train.set = SMOTE(as.formula(sprintf("%s ~.", OUTPUT_VAR)) , train.set , k=5, perc.over = 200, perc.under = maj_class_perc ) 
+    prop.min = 1
+    nmin_new = nmin*prop.min
+    maj_class_perc = 100*((prop.maj/(1-prop.maj))*(1 + nmin/nmin_new))
+    train.set = SMOTE(as.formula(sprintf("%s ~.", OUTPUT_VAR)) , train.set , k=5, perc.over = prop.min*100, perc.under = maj_class_perc ) 
+  
+    barplot(prop.table(table(train.set[[OUTPUT_VAR]])),
+        col = rainbow(3),
+        ylim = c(0, 1.01),
+        main = "Class Distribution")
     
     minoritary <- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MIN)
     majoritary<- subset(train.set, train.set[[OUTPUT_VAR]] == OUTPUT_MAJ)
@@ -1149,8 +1154,8 @@ Before IPIP models let us set up a simplified function to better work them
 metricPreparedFrameIPIP <- function(ensemble, setToTest)
       data.frame(
           obs = setToTest[[OUTPUT_VAR]],
-          pred = as.factor(prediction.final(ensemble,setToTest[,names(setToTest) != OUTPUT_VAR])),
-          prob= prediction.final.prob(ensemble, setToTest[,names(setToTest) != OUTPUT_VAR]),
+          pred = as.factor(prediction.fold(ensemble,setToTest[,names(setToTest) != OUTPUT_VAR])),
+          prob= prediction.fold.prob(ensemble, setToTest[,names(setToTest) != OUTPUT_VAR]),
           obs.prob = as.numeric(ifelse(setToTest[[OUTPUT_VAR]] == OUTPUT_MAJ, 1, 0))
         )
 
