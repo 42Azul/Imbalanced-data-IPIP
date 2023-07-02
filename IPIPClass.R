@@ -54,18 +54,24 @@ IPIP <- R6Class("IPIP",
                     nmaj = sum(train.set[[self$OUTPUT_VAR]] == self$OUTPUT_MAJ)
                     self$np <- self$calculate_np(nmin, nmaj)
                     self$p <- self$calculate_p()
-                    self$b <- self$calculate_b(nmin)
+
                     
                     if(self$exhaustive == TRUE) {
                       self$ensemble_model <- self$train_IPIP_exhaustive(train.set, val.set)
                     } else {
-                      self$ensemble_model <- self$train_IPIP_seq(train.set, val.set)
+                      self$b <- self$calculate_b(nmin)
+                      if(self$b<=length(self$conf)){
+                        self$ensemble_model <- self$train_IPIP_seq(train.set, val.set)
+                      }
+                      else{
+                        print(sprintf("Not enough elements for the sequential approach. %d expected, %d given", self$b, length(self$conf)))
+                      }
                     }
                     invisible(self)
                   },
                   
                   predict = function(x) {
-                    prediction.fold(self$ensemble_model, x, self$default_q)
+                    prediction.fold(self$ensemble_model, x, self$q)
                   },
                   
                   #Function to calculate number of positive samples, np

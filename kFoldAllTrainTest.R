@@ -10,6 +10,7 @@ library(DMwR)
 library(ggplot2)
 library(GGally)
 library(corrplot)
+library(ROSE)
 
 
 NUM_CORES = 6
@@ -34,17 +35,28 @@ set.seed(42)
 
 #For adult dataset
 
-data = read.csv("../Datasets/adult.csv", nrows=2000)
+
+data = read.csv("../Datasets/adult.csv", nrows=5000)
+data <- data[!apply(data == "?", 1, any), ]
+
+#Removed varuables for simplicity education.num, relationship, fnlwgt, capital.gain and capital.loss
+data$occupation<-NULL
+data$fnlwgt<-NULL
+data$educational.num<-NULL
+data$relationship<-NULL
+
  ind.cualit <- c(which(names(data) == "workclass"),which(names(data)=="education"),which(names(data)=="income"),which(names(data)=="marital.status"):which(names(data)=="gender"),which(names(data)=="native.country"))
  OUTPUT_VAR = "income"
  data = na.omit(data)
  data[[OUTPUT_VAR]] = factor(data[[OUTPUT_VAR]], levels = c("<=50K", ">50K"), labels = c("Low", "High"))
+ 
+
 
 #For covid dataset
-
-#data = read.csv("../Datasets/data_tfg.csv")
-#ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
-#OUTPUT_VAR = "SITUACION"
+# 
+# data = read.csv("../Datasets/data_tfg.csv")
+# ind.cualit <- c(which(names(data) == "SITUACION"),which(names(data)=="SEXO"),which(names(data)=="DM"):which(names(data)=="DC"))
+# OUTPUT_VAR = "SITUACION"
 
 
 # For correlation plot of some characteristics
@@ -74,6 +86,8 @@ barplot(prop.table(table(data[[OUTPUT_VAR]])),
 
 
 ## ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 train.index <- createDataPartition(data[[OUTPUT_VAR]], p = 0.85, list = FALSE)
 data.train <- data[ train.index,]
 data.test  <- data[-train.index,]
@@ -307,35 +321,49 @@ seed_algorithms <- c(
   },
 #SVM
 function(df.train, metrics, OUTPUT, metric_optimize) {
-
-    tC <- trainControl(
-      summaryFunction = metrics,
-      allowParallel = TRUE,
-      classProbs = TRUE
-    )
-    
-    method <- "svmlinear"
-        
-        
-    cl <- makeCluster(NUM_CORES, type="FORK")
-    clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
-    registerDoParallel(cl)
-    
-    
-    svm <- train(
-      as.formula(sprintf("%s ~.", OUTPUT, metric_optimize)),
+  
+  
+  
+  tC <- trainControl(
+    summaryFunction = metrics,
+    allowParallel = TRUE,
+    classProbs = TRUE
+  )
+  
+  # method <- "svmLinear"
+  # 
+  # cl <- makeCluster(NUM_CORES, type = "FORK")
+  # clusterExport(cl, c("OUTPUT_MIN", "OUTPUT_MAJ"))
+  # registerDoParallel(cl)
+  # 
+  # svm <- train(
+  #   as.formula(sprintf("%s ~.", OUTPUT)),
+  #   data = df.train,
+  #   method = method,
+  #   metric = metric_optimize,
+  #   maximize = TRUE,
+  #   trControl = tC
+  # )
+  
+    svm <- train(as.formula(sprintf("%s ~.", OUTPUT)),
       data = df.train,
-      method = method,
+      method = "glmnet",
+      family = 'binomial',
       metric = metric_optimize,
       maximize = T,
+      tuneGrid = expand.grid(
+        alpha = seq(0, 1, by = 0.2),
+        lambda = seq(0.0001, 1, length = 100)
+      ),
       trControl = tC
     )
-    
-    stopCluster(cl)
-    registerDoSEQ()
-    
-    return(svm)
-  },
+  
+  stopCluster(cl)
+  registerDoSEQ()
+  
+  return(svm)
+},
+
 #GBM
  function(df.train, metrics, OUTPUT, metric_optimize) {
 
